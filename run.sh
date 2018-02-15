@@ -1,2 +1,2 @@
 #!/bin/sh
-go run main.go $@
+go run *.go $@

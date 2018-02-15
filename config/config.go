@@ -11,7 +11,7 @@ type Config struct {
 	ApiToken           string `json:"apiToken"`
 	Server             string `json:"server"`
 	DefaultProject     string `json:"defaultProject"`
-	DefaultEnvironment string `json:"DefaultEnvironment"`
+	DefaultEnvironment string `json:"defaultEnvironment"`
 }
 
 func ReadConfig() (Config, error) {
