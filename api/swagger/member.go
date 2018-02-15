@@ -11,8 +11,10 @@
 package swagger
 
 type Member struct {
+
 	Links *Links `json:"_links,omitempty"`
 
+	// The unique resource id.
 	Id string `json:"_id,omitempty"`
 
 	Role *Role `json:"role,omitempty"`

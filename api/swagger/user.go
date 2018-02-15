@@ -11,10 +11,12 @@
 package swagger
 
 type User struct {
+
 	LastPing string `json:"lastPing,omitempty"`
 
 	EnvironmentId string `json:"environmentId,omitempty"`
 
+	// The unique resource id.
 	OwnerId string `json:"ownerId,omitempty"`
 
 	User *interface{} `json:"user,omitempty"`

@@ -11,6 +11,7 @@
 package swagger
 
 type CustomRole struct {
+
 	Links *Links `json:"_links,omitempty"`
 
 	// Name of the custom role.
@@ -21,6 +22,7 @@ type CustomRole struct {
 	// Description of the custom role.
 	Description string `json:"description,omitempty"`
 
+	// The unique resource id.
 	Id string `json:"_id,omitempty"`
 
 	Policy []Policy `json:"policy,omitempty"`

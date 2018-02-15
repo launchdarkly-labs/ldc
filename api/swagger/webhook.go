@@ -11,8 +11,10 @@
 package swagger
 
 type Webhook struct {
+
 	Links *Links `json:"_links,omitempty"`
 
+	// The unique resource id.
 	Id string `json:"_id,omitempty"`
 
 	// The URL of the remote webhook.

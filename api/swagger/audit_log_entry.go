@@ -11,8 +11,10 @@
 package swagger
 
 type AuditLogEntry struct {
+
 	Links *Links `json:"_links,omitempty"`
 
+	// The unique resource id.
 	Id string `json:"_id,omitempty"`
 
 	Date int64 `json:"date,omitempty"`

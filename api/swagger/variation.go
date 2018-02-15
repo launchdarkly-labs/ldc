@@ -10,12 +10,11 @@
 
 package swagger
 
-import "encoding/json"
-
 type Variation struct {
+
 	Name string `json:"name,omitempty"`
 
 	Description string `json:"description,omitempty"`
 
-	Value json.RawMessage `json:"value"`
+	Value *interface{} `json:"value"`
 }

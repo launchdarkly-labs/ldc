@@ -11,6 +11,7 @@
 package swagger
 
 type MembersBody struct {
+
 	Email string `json:"email"`
 
 	FirstName string `json:"firstName,omitempty"`
