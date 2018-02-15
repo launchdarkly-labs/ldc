@@ -1265,7 +1265,9 @@ definitions:
       _links:
         $ref: "#/definitions/Links"
       _id:
-        $ref: "#/definitions/Id"
+        type: "string"
+        example: "5a580a01b4ff89217bdf9dc1"
+        description: "The unique resource id."
       url:
         type: "string"
         example: "https://example.com/example"
@@ -1345,6 +1347,10 @@ definitions:
         type: "string"
         example: "test-feature"
         description: "Name of the feature flag."
+      description:
+        type: "string"
+        example: "This flag controls whether test feature is turned on or not."
+        description: "Description of the feature flag."
       kind:
         type: "string"
         example: "boolean"
@@ -1388,8 +1394,6 @@ definitions:
           $ref: "#/definitions/FeatureFlagConfig"
     example:
       temporary: false
-      includeInSnippet: false
-      maintainerId: "561c579cd8fd5c2704000001"
       _maintainer:
         role: {}
         _links:
@@ -1474,11 +1478,14 @@ definitions:
             variation: 0
           on: true
       kind: "boolean"
+      description: "This flag controls whether test feature is turned on or not."
+      creationDate: 1.44365223259E12
+      tags: "[]"
+      includeInSnippet: false
+      maintainerId: "561c579cd8fd5c2704000001"
       variations: "[ { \"value\": \"a\" }, { \"value\": \"b\" } ]"
       name: "test-feature"
-      creationDate: 1.44365223259E12
       key: "bob@example.com"
-      tags: "[]"
   FeatureFlags:
     type: "object"
     properties:
@@ -1495,8 +1502,6 @@ definitions:
           type: "application/json"
       items:
       - temporary: false
-        includeInSnippet: false
-        maintainerId: "561c579cd8fd5c2704000001"
         _maintainer:
           role: {}
           _links:
@@ -1581,14 +1586,15 @@ definitions:
               variation: 0
             on: true
         kind: "boolean"
+        description: "This flag controls whether test feature is turned on or not."
+        creationDate: 1.44365223259E12
+        tags: "[]"
+        includeInSnippet: false
+        maintainerId: "561c579cd8fd5c2704000001"
         variations: "[ { \"value\": \"a\" }, { \"value\": \"b\" } ]"
         name: "test-feature"
-        creationDate: 1.44365223259E12
         key: "bob@example.com"
-        tags: "[]"
       - temporary: false
-        includeInSnippet: false
-        maintainerId: "561c579cd8fd5c2704000001"
         _maintainer:
           role: {}
           _links:
@@ -1673,18 +1679,23 @@ definitions:
               variation: 0
             on: true
         kind: "boolean"
+        description: "This flag controls whether test feature is turned on or not."
+        creationDate: 1.44365223259E12
+        tags: "[]"
+        includeInSnippet: false
+        maintainerId: "561c579cd8fd5c2704000001"
         variations: "[ { \"value\": \"a\" }, { \"value\": \"b\" } ]"
         name: "test-feature"
-        creationDate: 1.44365223259E12
         key: "bob@example.com"
-        tags: "[]"
   Member:
     type: "object"
     properties:
       _links:
         $ref: "#/definitions/Links"
       _id:
-        $ref: "#/definitions/Id"
+        type: "string"
+        example: "5a580a01b4ff89217bdf9dc1"
+        description: "The unique resource id."
       role:
         $ref: "#/definitions/Role"
       email:
@@ -1697,7 +1708,9 @@ definitions:
       customRoles:
         type: "array"
         items:
-          $ref: "#/definitions/Id"
+          type: "string"
+          example: "5a580a01b4ff89217bdf9dc1"
+          description: "The unique resource id."
     example:
       role: {}
       _links:
@@ -1936,7 +1949,8 @@ definitions:
         type: "string"
         example: "The true variation"
       value:
-        type: "boolean"
+        type: "object"
+        properties: {}
   FeatureFlagStatus:
     type: "object"
     properties:
@@ -2044,7 +2058,9 @@ definitions:
       _links:
         $ref: "#/definitions/Links"
       _id:
-        $ref: "#/definitions/Id"
+        type: "string"
+        example: "5a580a01b4ff89217bdf9dc1"
+        description: "The unique resource id."
       key:
         type: "string"
         example: "zentasks"
@@ -2183,7 +2199,9 @@ definitions:
         type: "string"
         example: "54ac2d97de674204ddd61096"
       ownerId:
-        $ref: "#/definitions/Id"
+        type: "string"
+        example: "5a580a01b4ff89217bdf9dc1"
+        description: "The unique resource id."
       user:
         type: "object"
         example:
@@ -2248,7 +2266,9 @@ definitions:
       _links:
         $ref: "#/definitions/Links"
       _id:
-        $ref: "#/definitions/Id"
+        type: "string"
+        example: "5a580a01b4ff89217bdf9dc1"
+        description: "The unique resource id."
       date:
         type: "integer"
         format: "int64"
@@ -2512,12 +2532,6 @@ definitions:
     type: "string"
     description: "An action to perform on a resource."
     example: "updateOn"
-  NonOwnerRole:
-    type: "string"
-    enum:
-    - "writer"
-    - "reader"
-    - "admin"
   Role:
     type: "string"
     enum:
@@ -2545,7 +2559,9 @@ definitions:
         example: "Description of revenue team role here"
         description: "Description of the custom role."
       _id:
-        $ref: "#/definitions/Id"
+        type: "string"
+        example: "5a580a01b4ff89217bdf9dc1"
+        description: "The unique resource id."
       policy:
         type: "array"
         items:
@@ -2609,10 +2625,6 @@ definitions:
       effect: "deny"
       resources: ""
       actions: ""
-  Id:
-    type: "string"
-    description: "The unique resource id."
-    example: "5a580a01b4ff89217bdf9dc1"
   projectBody:
     type: "object"
     required:
@@ -2789,7 +2801,7 @@ definitions:
         type: "string"
         example: "Loblaw"
       role:
-        $ref: "#/definitions/NonOwnerRole"
+        $ref: "#/definitions/Role"
       customRoles:
         type: "array"
         items:

@@ -17,6 +17,9 @@ type FeatureFlag struct {
 	// Name of the feature flag.
 	Name string `json:"name,omitempty"`
 
+	// Description of the feature flag.
+	Description string `json:"description,omitempty"`
+
 	// Whether the feature flag is a boolean flag or multivariate.
 	Kind string `json:"kind,omitempty"`
 

@@ -6,7 +6,7 @@ Name | Type | Description | Notes
 **Email** | **string** |  | [default to null]
 **FirstName** | **string** |  | [optional] [default to null]
 **LastName** | **string** |  | [optional] [default to null]
-**Role** | [***NonOwnerRole**](NonOwnerRole.md) |  | [optional] [default to null]
+**Role** | [***Role**](Role.md) |  | [optional] [default to null]
 **CustomRoles** | [**[]CustomRoleKeyOrId**](CustomRoleKeyOrId.md) |  | [optional] [default to null]
 **InlineRole** | [***Statements**](Statements.md) |  | [optional] [default to null]
 

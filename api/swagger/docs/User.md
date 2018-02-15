@@ -5,7 +5,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **LastPing** | **string** |  | [optional] [default to null]
 **EnvironmentId** | **string** |  | [optional] [default to null]
-**OwnerId** | [***Id**](Id.md) |  | [optional] [default to null]
+**OwnerId** | **string** | The unique resource id. | [optional] [default to null]
 **User** | [***interface{}**](interface{}.md) |  | [optional] [default to null]
 **Avatar** | **string** |  | [optional] [default to null]
 

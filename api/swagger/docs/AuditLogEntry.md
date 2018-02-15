@@ -4,7 +4,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **Links** | [***Links**](Links.md) |  | [optional] [default to null]
-**Id** | [***Id**](Id.md) |  | [optional] [default to null]
+**Id** | **string** | The unique resource id. | [optional] [default to null]
 **Date** | **int64** |  | [optional] [default to null]
 **Kind** | **string** |  | [optional] [default to null]
 **Name** | **string** |  | [optional] [default to null]

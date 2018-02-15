@@ -5,6 +5,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **Key** | **string** |  | [optional] [default to null]
 **Name** | **string** | Name of the feature flag. | [optional] [default to null]
+**Description** | **string** | Description of the feature flag. | [optional] [default to null]
 **Kind** | **string** | Whether the feature flag is a boolean flag or multivariate. | [optional] [default to null]
 **CreationDate** | **float32** | A unix epoch time in milliseconds specifying the creation time of this flag. | [optional] [default to null]
 **IncludeInSnippet** | **bool** |  | [optional] [default to null]
