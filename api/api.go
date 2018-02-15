@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-
-	"github.com/launchdarkly/foundation/logger"
 )
 
 var token string
@@ -48,8 +46,8 @@ func Call(method string, path string, target interface{}) error {
 		panic(err)
 	}
 	body, err := ioutil.ReadAll(resp.Body)
-	logger.Info.Println(string(path))
-	logger.Info.Println(string(body))
+	//logger.Info.Println(string(path))
+	//logger.Info.Println(string(body))
 	if err != nil {
 		panic(err)
 	}

@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"./api"
 	"./config"
@@ -14,7 +13,7 @@ var apiTokenOverride = flag.String("token", "", "API token to use, overrides con
 
 func main() {
 
-	config, err := config.ReadConfig()
+	conf, err := config.ReadConfig()
 	if err != nil {
 		panic("error reading config " + err.Error())
 	}
@@ -24,14 +23,8 @@ func main() {
 		usage()
 	}
 
-	token := apiTokenOverride
-	if token == nil || *token == "" {
-		token = &config.ApiToken
-		if *token == "" {
-			fmt.Fprintf(os.Stderr, "No API token provided, set either via config or flag\n")
-		}
-	}
-	api.SetToken(*token)
+	token := config.GetFlagOrConfigValue(apiTokenOverride, conf.ApiToken, "No API token provided, set either via config or flag\n")
+	api.SetToken(token)
 
 	//TODO get from config
 	api.SetServer("http://localhost/api/v2")
@@ -41,7 +34,7 @@ func main() {
 	case "flag":
 		fallthrough
 	case "flags":
-		flags.Main(flag.Args()[1:], config)
+		flags.Main(flag.Args()[1:], conf)
 
 	default:
 		fmt.Printf("Unrecognized subcommand: %s\n", subcommand)

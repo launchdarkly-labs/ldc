@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 
 	"../api"
+	"../config"
+	"github.com/olekukonko/tablewriter"
 )
 
 type Flag struct {
@@ -14,9 +17,9 @@ type Flag struct {
 	Description string `json:"description"`
 }
 
-func Main(args []string, config Config) {
+func Main(args []string, conf config.Config) {
 	f := flag.NewFlagSet("flags", flag.ExitOnError)
-	f.String("project", "", "Which project to use")
+	projectOverride := f.String("project", "", "Which project to use")
 	f.Parse(args)
 
 	subcommand := f.Arg(0)
@@ -35,21 +38,24 @@ func Main(args []string, config Config) {
 				fmt.Printf("%v\n", api.Name(project.Href))
 			}
 		case 1:
-			project := 
+			project := config.GetFlagOrConfigValue(projectOverride, conf.DefaultProject, "Need to set a project by flag or config value")
 			list := api.ItemList{}
 			err := api.Call("GET", "/flags/"+project, &list)
 			if err != nil {
 				panic(err)
 			}
-			fmt.Printf("key\t\tname\t\tdescription\n")
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"Key", "Name", "Description"})
 			for _, flagJson := range list.Items {
 				flag := Flag{}
 				err := json.Unmarshal(flagJson, &flag)
 				if err != nil {
 					panic(err)
 				}
-				fmt.Printf("%s\t\t%s\t\t%s\n", flag.Key, flag.Name, flag.Description)
+				table.Append([]string{flag.Key, flag.Name, flag.Description})
 			}
+			table.SetRowLine(true)
+			table.Render()
 		case 3:
 			project := f.Arg(1)
 			flagKey := f.Arg(2)
@@ -60,6 +66,8 @@ func Main(args []string, config Config) {
 			}
 			fmt.Println("Name: " + flag.Name)
 		}
+	default:
+		fmt.Println("")
 	}
 }
 

@@ -45,3 +45,13 @@ func ReadConfig() (Config, error) {
 	}
 	return config, err
 }
+
+func GetFlagOrConfigValue(flagVal *string, configVal string, errorMsg string) string {
+	if flagVal != nil && *flagVal != "" {
+		return *flagVal
+	}
+	if configVal != "" {
+		return configVal
+	}
+	panic(errorMsg)
+}
