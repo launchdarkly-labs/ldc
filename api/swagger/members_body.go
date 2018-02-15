@@ -10,19 +10,16 @@
 
 package swagger
 
-type Member struct {
+type MembersBody struct {
+	Email string `json:"email"`
 
-	Links *Links `json:"_links,omitempty"`
+	FirstName string `json:"firstName,omitempty"`
 
-	Id *Id `json:"_id,omitempty"`
+	LastName string `json:"lastName,omitempty"`
 
 	Role *Role `json:"role,omitempty"`
 
-	Email string `json:"email,omitempty"`
+	CustomRoles []CustomRoleKeyOrId `json:"customRoles,omitempty"`
 
-	PendingInvite bool `json:"_pendingInvite,omitempty"`
-
-	IsBeta bool `json:"isBeta,omitempty"`
-
-	CustomRoles []Id `json:"customRoles,omitempty"`
+	InlineRole *Statements `json:"inlineRole,omitempty"`
 }

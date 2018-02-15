@@ -10,6 +10,14 @@
 
 package swagger
 
-// The unique resource id.
-type Id struct {
+type User struct {
+	LastPing string `json:"lastPing,omitempty"`
+
+	EnvironmentId string `json:"environmentId,omitempty"`
+
+	OwnerId string `json:"ownerId,omitempty"`
+
+	User *interface{} `json:"user,omitempty"`
+
+	Avatar string `json:"avatar,omitempty"`
 }

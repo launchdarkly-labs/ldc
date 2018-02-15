@@ -10,15 +10,18 @@
 
 package swagger
 
-type Projects struct {
-
+type Member struct {
 	Links *Links `json:"_links,omitempty"`
 
-	Id *Id `json:"_id,omitempty"`
+	Id string `json:"_id,omitempty"`
 
-	Key string `json:"key,omitempty"`
+	Role *Role `json:"role,omitempty"`
 
-	Name string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
 
-	Items []Project `json:"items,omitempty"`
+	PendingInvite bool `json:"_pendingInvite,omitempty"`
+
+	IsBeta bool `json:"isBeta,omitempty"`
+
+	CustomRoles []string `json:"customRoles,omitempty"`
 }

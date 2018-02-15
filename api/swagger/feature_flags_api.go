@@ -11,13 +11,14 @@
 package swagger
 
 import (
-	"io/ioutil"
-	"net/url"
-	"net/http"
-	"strings"
-	"golang.org/x/net/context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strings"
+
+	"golang.org/x/net/context"
 )
 
 // Linger please
@@ -27,18 +28,17 @@ var (
 
 type FeatureFlagsApiService service
 
-
 /* FeatureFlagsApiService Delete a feature flag in all environments. Be careful-- only delete feature flags that are no longer being used by your application.
- * @param ctx context.Context for authentication, logging, tracing, etc.
- @param projectKey The project key, used to tie the flags together under one project so they can be managed together.
- @param featureFlagKey The feature flag&#39;s key. The key identifies the flag in your code.
- @return */
-func (a *FeatureFlagsApiService) DeleteFeatureFlag(ctx context.Context, projectKey string, featureFlagKey string) ( *http.Response, error) {
+* @param ctx context.Context for authentication, logging, tracing, etc.
+@param projectKey The project key, used to tie the flags together under one project so they can be managed together.
+@param featureFlagKey The feature flag&#39;s key. The key identifies the flag in your code.
+@return */
+func (a *FeatureFlagsApiService) DeleteFeatureFlag(ctx context.Context, projectKey string, featureFlagKey string) (*http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Delete")
-		localVarPostBody interface{}
-		localVarFileName string
-		localVarFileBytes []byte
+		localVarPostBody   interface{}
+		localVarFileName   string
+		localVarFileBytes  []byte
 	)
 
 	// create path and map variables
@@ -50,9 +50,8 @@ func (a *FeatureFlagsApiService) DeleteFeatureFlag(ctx context.Context, projectK
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
-
 	// to determine the Content-Type header
-	localVarHttpContentTypes := []string{ "application/json",  }
+	localVarHttpContentTypes := []string{"application/json"}
 
 	// set Content-Type header
 	localVarHttpContentType := selectHeaderContentType(localVarHttpContentTypes)
@@ -63,7 +62,7 @@ func (a *FeatureFlagsApiService) DeleteFeatureFlag(ctx context.Context, projectK
 	// to determine the Accept header
 	localVarHttpHeaderAccepts := []string{
 		"application/json",
-		}
+	}
 
 	// set Accept header
 	localVarHttpHeaderAccept := selectHeaderAccept(localVarHttpHeaderAccepts)
@@ -101,19 +100,19 @@ func (a *FeatureFlagsApiService) DeleteFeatureFlag(ctx context.Context, projectK
 }
 
 /* FeatureFlagsApiService Get a single feature flag by key.
- * @param ctx context.Context for authentication, logging, tracing, etc.
- @param projectKey The project key, used to tie the flags together under one project so they can be managed together.
- @param featureFlagKey The feature flag&#39;s key. The key identifies the flag in your code.
- @param optional (nil or map[string]interface{}) with one or more of:
-     @param "env" (string) By default, each feature will include configurations for each environment. You can filter environments with the env query parameter. For example, setting env&#x3D;production will restrict the returned configurations to just your production environment.
- @return FeatureFlag*/
-func (a *FeatureFlagsApiService) GetFeatureFlag(ctx context.Context, projectKey string, featureFlagKey string, localVarOptionals map[string]interface{}) (FeatureFlag,  *http.Response, error) {
+* @param ctx context.Context for authentication, logging, tracing, etc.
+@param projectKey The project key, used to tie the flags together under one project so they can be managed together.
+@param featureFlagKey The feature flag&#39;s key. The key identifies the flag in your code.
+@param optional (nil or map[string]interface{}) with one or more of:
+    @param "env" (string) By default, each feature will include configurations for each environment. You can filter environments with the env query parameter. For example, setting env&#x3D;production will restrict the returned configurations to just your production environment.
+@return FeatureFlag*/
+func (a *FeatureFlagsApiService) GetFeatureFlag(ctx context.Context, projectKey string, featureFlagKey string, localVarOptionals map[string]interface{}) (FeatureFlag, *http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Get")
-		localVarPostBody interface{}
-		localVarFileName string
-		localVarFileBytes []byte
-	 	successPayload  FeatureFlag
+		localVarPostBody   interface{}
+		localVarFileName   string
+		localVarFileBytes  []byte
+		successPayload     FeatureFlag
 	)
 
 	// create path and map variables
@@ -133,7 +132,7 @@ func (a *FeatureFlagsApiService) GetFeatureFlag(ctx context.Context, projectKey 
 		localVarQueryParams.Add("env", parameterToString(localVarTempParam, ""))
 	}
 	// to determine the Content-Type header
-	localVarHttpContentTypes := []string{ "application/json",  }
+	localVarHttpContentTypes := []string{"application/json"}
 
 	// set Content-Type header
 	localVarHttpContentType := selectHeaderContentType(localVarHttpContentTypes)
@@ -144,7 +143,7 @@ func (a *FeatureFlagsApiService) GetFeatureFlag(ctx context.Context, projectKey 
 	// to determine the Accept header
 	localVarHttpHeaderAccepts := []string{
 		"application/json",
-		}
+	}
 
 	// set Accept header
 	localVarHttpHeaderAccept := selectHeaderAccept(localVarHttpHeaderAccepts)
@@ -182,22 +181,21 @@ func (a *FeatureFlagsApiService) GetFeatureFlag(ctx context.Context, projectKey 
 		return successPayload, localVarHttpResponse, err
 	}
 
-
 	return successPayload, localVarHttpResponse, err
 }
 
 /* FeatureFlagsApiService Get a list of statuses for all feature flags. The status includes the last time the feature flag was requested, as well as the state of the flag.
- * @param ctx context.Context for authentication, logging, tracing, etc.
- @param projectKey The project key, used to tie the flags together under one project so they can be managed together.
- @param environmentKey The environment key, used to tie together flag configuration and users under one environment so they can be managed together.
- @return FeatureFlagStatuses*/
-func (a *FeatureFlagsApiService) GetFeatureFlagStatus(ctx context.Context, projectKey string, environmentKey string) (FeatureFlagStatuses,  *http.Response, error) {
+* @param ctx context.Context for authentication, logging, tracing, etc.
+@param projectKey The project key, used to tie the flags together under one project so they can be managed together.
+@param environmentKey The environment key, used to tie together flag configuration and users under one environment so they can be managed together.
+@return FeatureFlagStatuses*/
+func (a *FeatureFlagsApiService) GetFeatureFlagStatus(ctx context.Context, projectKey string, environmentKey string) (FeatureFlagStatuses, *http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Get")
-		localVarPostBody interface{}
-		localVarFileName string
-		localVarFileBytes []byte
-	 	successPayload  FeatureFlagStatuses
+		localVarPostBody   interface{}
+		localVarFileName   string
+		localVarFileBytes  []byte
+		successPayload     FeatureFlagStatuses
 	)
 
 	// create path and map variables
@@ -209,9 +207,8 @@ func (a *FeatureFlagsApiService) GetFeatureFlagStatus(ctx context.Context, proje
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
-
 	// to determine the Content-Type header
-	localVarHttpContentTypes := []string{ "application/json",  }
+	localVarHttpContentTypes := []string{"application/json"}
 
 	// set Content-Type header
 	localVarHttpContentType := selectHeaderContentType(localVarHttpContentTypes)
@@ -222,7 +219,7 @@ func (a *FeatureFlagsApiService) GetFeatureFlagStatus(ctx context.Context, proje
 	// to determine the Accept header
 	localVarHttpHeaderAccepts := []string{
 		"application/json",
-		}
+	}
 
 	// set Accept header
 	localVarHttpHeaderAccept := selectHeaderAccept(localVarHttpHeaderAccepts)
@@ -260,23 +257,22 @@ func (a *FeatureFlagsApiService) GetFeatureFlagStatus(ctx context.Context, proje
 		return successPayload, localVarHttpResponse, err
 	}
 
-
 	return successPayload, localVarHttpResponse, err
 }
 
 /* FeatureFlagsApiService Get the status for a particular feature flag.
- * @param ctx context.Context for authentication, logging, tracing, etc.
- @param projectKey The project key, used to tie the flags together under one project so they can be managed together.
- @param environmentKey The environment key, used to tie together flag configuration and users under one environment so they can be managed together.
- @param featureFlagKey The feature flag&#39;s key. The key identifies the flag in your code.
- @return FeatureFlagStatus*/
-func (a *FeatureFlagsApiService) GetFeatureFlagStatuses(ctx context.Context, projectKey string, environmentKey string, featureFlagKey string) (FeatureFlagStatus,  *http.Response, error) {
+* @param ctx context.Context for authentication, logging, tracing, etc.
+@param projectKey The project key, used to tie the flags together under one project so they can be managed together.
+@param environmentKey The environment key, used to tie together flag configuration and users under one environment so they can be managed together.
+@param featureFlagKey The feature flag&#39;s key. The key identifies the flag in your code.
+@return FeatureFlagStatus*/
+func (a *FeatureFlagsApiService) GetFeatureFlagStatuses(ctx context.Context, projectKey string, environmentKey string, featureFlagKey string) (FeatureFlagStatus, *http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Get")
-		localVarPostBody interface{}
-		localVarFileName string
-		localVarFileBytes []byte
-	 	successPayload  FeatureFlagStatus
+		localVarPostBody   interface{}
+		localVarFileName   string
+		localVarFileBytes  []byte
+		successPayload     FeatureFlagStatus
 	)
 
 	// create path and map variables
@@ -289,9 +285,8 @@ func (a *FeatureFlagsApiService) GetFeatureFlagStatuses(ctx context.Context, pro
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
-
 	// to determine the Content-Type header
-	localVarHttpContentTypes := []string{ "application/json",  }
+	localVarHttpContentTypes := []string{"application/json"}
 
 	// set Content-Type header
 	localVarHttpContentType := selectHeaderContentType(localVarHttpContentTypes)
@@ -302,7 +297,7 @@ func (a *FeatureFlagsApiService) GetFeatureFlagStatuses(ctx context.Context, pro
 	// to determine the Accept header
 	localVarHttpHeaderAccepts := []string{
 		"application/json",
-		}
+	}
 
 	// set Accept header
 	localVarHttpHeaderAccept := selectHeaderAccept(localVarHttpHeaderAccepts)
@@ -340,24 +335,23 @@ func (a *FeatureFlagsApiService) GetFeatureFlagStatuses(ctx context.Context, pro
 		return successPayload, localVarHttpResponse, err
 	}
 
-
 	return successPayload, localVarHttpResponse, err
 }
 
 /* FeatureFlagsApiService Get a list of all features in the given project.
- * @param ctx context.Context for authentication, logging, tracing, etc.
- @param projectKey The project key, used to tie the flags together under one project so they can be managed together.
- @param optional (nil or map[string]interface{}) with one or more of:
-     @param "env" (string) By default, each feature will include configurations for each environment. You can filter environments with the env query parameter. For example, setting env&#x3D;production will restrict the returned configurations to just your production environment.
-     @param "tag" (string) Filter by tag. A tag can be used to group flags across projects.
- @return FeatureFlags*/
-func (a *FeatureFlagsApiService) GetFeatureFlags(ctx context.Context, projectKey string, localVarOptionals map[string]interface{}) (FeatureFlags,  *http.Response, error) {
+* @param ctx context.Context for authentication, logging, tracing, etc.
+@param projectKey The project key, used to tie the flags together under one project so they can be managed together.
+@param optional (nil or map[string]interface{}) with one or more of:
+    @param "env" (string) By default, each feature will include configurations for each environment. You can filter environments with the env query parameter. For example, setting env&#x3D;production will restrict the returned configurations to just your production environment.
+    @param "tag" (string) Filter by tag. A tag can be used to group flags across projects.
+@return FeatureFlags*/
+func (a *FeatureFlagsApiService) GetFeatureFlags(ctx context.Context, projectKey string, localVarOptionals map[string]interface{}) (FeatureFlags, *http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Get")
-		localVarPostBody interface{}
-		localVarFileName string
-		localVarFileBytes []byte
-	 	successPayload  FeatureFlags
+		localVarPostBody   interface{}
+		localVarFileName   string
+		localVarFileBytes  []byte
+		successPayload     FeatureFlags
 	)
 
 	// create path and map variables
@@ -382,7 +376,7 @@ func (a *FeatureFlagsApiService) GetFeatureFlags(ctx context.Context, projectKey
 		localVarQueryParams.Add("tag", parameterToString(localVarTempParam, ""))
 	}
 	// to determine the Content-Type header
-	localVarHttpContentTypes := []string{ "application/json",  }
+	localVarHttpContentTypes := []string{"application/json"}
 
 	// set Content-Type header
 	localVarHttpContentType := selectHeaderContentType(localVarHttpContentTypes)
@@ -393,7 +387,7 @@ func (a *FeatureFlagsApiService) GetFeatureFlags(ctx context.Context, projectKey
 	// to determine the Accept header
 	localVarHttpHeaderAccepts := []string{
 		"application/json",
-		}
+	}
 
 	// set Accept header
 	localVarHttpHeaderAccept := selectHeaderAccept(localVarHttpHeaderAccepts)
@@ -431,23 +425,22 @@ func (a *FeatureFlagsApiService) GetFeatureFlags(ctx context.Context, projectKey
 		return successPayload, localVarHttpResponse, err
 	}
 
-
 	return successPayload, localVarHttpResponse, err
 }
 
 /* FeatureFlagsApiService Perform a partial update to a feature.
- * @param ctx context.Context for authentication, logging, tracing, etc.
- @param projectKey The project key, used to tie the flags together under one project so they can be managed together.
- @param featureFlagKey The feature flag&#39;s key. The key identifies the flag in your code.
- @param patchComment Requires a JSON Patch representation of the desired changes to the project. &#39;http://jsonpatch.com/&#39; Feature flag patches also support JSON Merge Patch format. &#39;https://tools.ietf.org/html/rfc7386&#39; The addition of comments is also supported.
- @return FeatureFlag*/
-func (a *FeatureFlagsApiService) PatchFeatureFlag(ctx context.Context, projectKey string, featureFlagKey string, patchComment PatchComment) (FeatureFlag,  *http.Response, error) {
+* @param ctx context.Context for authentication, logging, tracing, etc.
+@param projectKey The project key, used to tie the flags together under one project so they can be managed together.
+@param featureFlagKey The feature flag&#39;s key. The key identifies the flag in your code.
+@param patchComment Requires a JSON Patch representation of the desired changes to the project. &#39;http://jsonpatch.com/&#39; Feature flag patches also support JSON Merge Patch format. &#39;https://tools.ietf.org/html/rfc7386&#39; The addition of comments is also supported.
+@return FeatureFlag*/
+func (a *FeatureFlagsApiService) PatchFeatureFlag(ctx context.Context, projectKey string, featureFlagKey string, patchComment PatchComment) (FeatureFlag, *http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Patch")
-		localVarPostBody interface{}
-		localVarFileName string
-		localVarFileBytes []byte
-	 	successPayload  FeatureFlag
+		localVarPostBody   interface{}
+		localVarFileName   string
+		localVarFileBytes  []byte
+		successPayload     FeatureFlag
 	)
 
 	// create path and map variables
@@ -459,9 +452,8 @@ func (a *FeatureFlagsApiService) PatchFeatureFlag(ctx context.Context, projectKe
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
-
 	// to determine the Content-Type header
-	localVarHttpContentTypes := []string{ "application/json",  }
+	localVarHttpContentTypes := []string{"application/json"}
 
 	// set Content-Type header
 	localVarHttpContentType := selectHeaderContentType(localVarHttpContentTypes)
@@ -472,7 +464,7 @@ func (a *FeatureFlagsApiService) PatchFeatureFlag(ctx context.Context, projectKe
 	// to determine the Accept header
 	localVarHttpHeaderAccepts := []string{
 		"application/json",
-		}
+	}
 
 	// set Accept header
 	localVarHttpHeaderAccept := selectHeaderAccept(localVarHttpHeaderAccepts)
@@ -512,21 +504,20 @@ func (a *FeatureFlagsApiService) PatchFeatureFlag(ctx context.Context, projectKe
 		return successPayload, localVarHttpResponse, err
 	}
 
-
 	return successPayload, localVarHttpResponse, err
 }
 
 /* FeatureFlagsApiService Creates a new feature flag.
- * @param ctx context.Context for authentication, logging, tracing, etc.
- @param projectKey The project key, used to tie the flags together under one project so they can be managed together.
- @param featureFlagBody Create a new feature flag.
- @return */
-func (a *FeatureFlagsApiService) PostFeatureFlag(ctx context.Context, projectKey string, featureFlagBody FeatureFlagBody) ( *http.Response, error) {
+* @param ctx context.Context for authentication, logging, tracing, etc.
+@param projectKey The project key, used to tie the flags together under one project so they can be managed together.
+@param featureFlagBody Create a new feature flag.
+@return */
+func (a *FeatureFlagsApiService) PostFeatureFlag(ctx context.Context, projectKey string, featureFlagBody FeatureFlagBody) (*http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Post")
-		localVarPostBody interface{}
-		localVarFileName string
-		localVarFileBytes []byte
+		localVarPostBody   interface{}
+		localVarFileName   string
+		localVarFileBytes  []byte
 	)
 
 	// create path and map variables
@@ -537,9 +528,8 @@ func (a *FeatureFlagsApiService) PostFeatureFlag(ctx context.Context, projectKey
 	localVarQueryParams := url.Values{}
 	localVarFormParams := url.Values{}
 
-
 	// to determine the Content-Type header
-	localVarHttpContentTypes := []string{ "application/json",  }
+	localVarHttpContentTypes := []string{"application/json"}
 
 	// set Content-Type header
 	localVarHttpContentType := selectHeaderContentType(localVarHttpContentTypes)
@@ -550,7 +540,7 @@ func (a *FeatureFlagsApiService) PostFeatureFlag(ctx context.Context, projectKey
 	// to determine the Accept header
 	localVarHttpHeaderAccepts := []string{
 		"application/json",
-		}
+	}
 
 	// set Accept header
 	localVarHttpHeaderAccept := selectHeaderAccept(localVarHttpHeaderAccepts)
@@ -588,4 +578,3 @@ func (a *FeatureFlagsApiService) PostFeatureFlag(ctx context.Context, projectKey
 
 	return localVarHttpResponse, err
 }
-

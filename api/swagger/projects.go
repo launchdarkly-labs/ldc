@@ -10,15 +10,14 @@
 
 package swagger
 
-type User struct {
+type Projects struct {
+	Links *Links `json:"_links,omitempty"`
 
-	LastPing string `json:"lastPing,omitempty"`
+	Id string `json:"_id,omitempty"`
 
-	EnvironmentId string `json:"environmentId,omitempty"`
+	Key string `json:"key,omitempty"`
 
-	OwnerId *Id `json:"ownerId,omitempty"`
+	Name string `json:"name,omitempty"`
 
-	User *interface{} `json:"user,omitempty"`
-
-	Avatar string `json:"avatar,omitempty"`
+	Items []Project `json:"items,omitempty"`
 }

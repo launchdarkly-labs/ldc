@@ -10,19 +10,12 @@
 
 package swagger
 
-type CustomRole struct {
+import "encoding/json"
 
-	Links *Links `json:"_links,omitempty"`
-
-	// Name of the custom role.
+type Variation struct {
 	Name string `json:"name,omitempty"`
 
-	Key *CustomRoleKeyOrId `json:"key,omitempty"`
-
-	// Description of the custom role.
 	Description string `json:"description,omitempty"`
 
-	Id *Id `json:"_id,omitempty"`
-
-	Policy []Policy `json:"policy,omitempty"`
+	Value json.RawMessage `json:"value"`
 }
