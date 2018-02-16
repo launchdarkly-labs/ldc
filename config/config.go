@@ -7,6 +7,8 @@ import (
 	"os"
 )
 
+type ConfigFile map[string]Config
+
 type Config struct {
 	ApiToken           string `json:"apiToken"`
 	Server             string `json:"server"`
@@ -14,7 +16,7 @@ type Config struct {
 	DefaultEnvironment string `json:"defaultEnvironment"`
 }
 
-func ReadConfig() (Config, error) {
+func ReadConfig(creds string) (Config, error) {
 	var config Config
 	homedir := os.Getenv("HOME")
 	// TODO path separator
@@ -23,9 +25,10 @@ func ReadConfig() (Config, error) {
 	defer configFile.Close()
 	if err == nil {
 		configJson, _ := ioutil.ReadAll(configFile)
-		err = json.Unmarshal(configJson, &config)
-		if err != nil {
-			return config, err
+		var allConfigs ConfigFile
+		err = json.Unmarshal(configJson, &allConfigs)
+		if err == nil {
+			return allConfigs[creds], err
 		}
 	} else if os.IsNotExist(err) {
 		// create the file if it doesn't exist
@@ -34,7 +37,9 @@ func ReadConfig() (Config, error) {
 		if err != nil {
 			return config, err
 		}
-		bytes, err := json.MarshalIndent(config, "", "    ")
+		allConfigs := make(map[string]Config)
+		allConfigs["staging"] = config
+		bytes, err := json.MarshalIndent(allConfigs, "", "    ")
 		if err != nil {
 			return config, err
 		}

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"net/http"
 
 	"ldc/api/swagger"
 )
@@ -9,8 +10,24 @@ import (
 var Auth context.Context
 var Client *swagger.APIClient
 
+var CurrentProject string
+var CurrentEnvironment string
+
+type LoggingTransport struct{}
+
+func (lt *LoggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := http.DefaultTransport.RoundTrip(req)
+
+	// TODO this is bad, don't do this
+	//resp.Body = ioutil.NopCloser(io.TeeReader(resp.Body, os.Stdout))
+	return resp, err
+}
+
 func init() {
 	Client = swagger.NewAPIClient(&swagger.Configuration{
+		HTTPClient: &http.Client{
+			Transport: &LoggingTransport{},
+		},
 		UserAgent: "ldc/0.0.1/go",
 	})
 }
@@ -18,7 +35,10 @@ func init() {
 // TODO
 func SetServer(newServer string) {
 	Client = swagger.NewAPIClient(&swagger.Configuration{
-		BasePath:  newServer,
+		BasePath: newServer,
+		HTTPClient: &http.Client{
+			Transport: &LoggingTransport{},
+		},
 		UserAgent: "ldc/0.0.1/go",
 	})
 
