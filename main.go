@@ -34,17 +34,17 @@ func main() {
 	api.CurrentProject = conf.DefaultProject
 	api.CurrentEnvironment = conf.DefaultEnvironment
 
+	shell.SetPrompt(api.CurrentProject + "/" + api.CurrentEnvironment + "> ")
+
 	shell.AddCmd(&ishell.Cmd{
 		Name:    "pwd",
-		Aliases: []string{"status"},
+		Aliases: []string{"status", "current"},
 		Help:    "show current context (api key, project, environment)",
 		Func: func(c *ishell.Context) {
-			c.Println("Current Server: " + server)
-			c.Println("Current API Key: " + token)
-			currentProject := api.CurrentProject
-			c.Println("Current Project: " + currentProject)
-			currentEnvironment := api.CurrentEnvironment
-			c.Println("Current Environment: " + currentEnvironment)
+			c.Println("Current Server: " + api.CurrentServer)
+			c.Println("Current API Key: " + api.CurrentToken)
+			c.Println("Current Project: " + api.CurrentProject)
+			c.Println("Current Environment: " + api.CurrentEnvironment)
 		},
 	})
 
@@ -85,6 +85,7 @@ func main() {
 	shell.AddCmd(&ishell.Cmd{
 		// TODO wanted / syntax but oh well
 		Name:    "switch",
+		Help:    "Switch to a given project and environment: switch project [environment]",
 		Aliases: []string{"select"},
 		Completer: func(args []string) []string {
 			switch len(args) {
@@ -93,7 +94,7 @@ func main() {
 				return projectCompleter(args)
 			case 1:
 				// env
-				return environmentCompleter(args[1:])
+				return environmentCompleterP(args[0], args[1:])
 			}
 			return []string{}
 		},

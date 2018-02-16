@@ -13,31 +13,32 @@ import (
 func AddEnvironmentCommands(shell *ishell.Shell) {
 	root := &ishell.Cmd{
 		Name:    "environments",
-		Aliases: []string{"environment"},
+		Aliases: []string{"environment", "env", "envs", "e"},
 		Help:    "list and operate on environments",
 		Func:    listEnvironmentsTable,
 	}
 	root.AddCmd(&ishell.Cmd{
-		Name: "list",
-		Help: "list environments",
-		Func: listEnvironmentsTable,
+		Name:    "list",
+		Aliases: []string{"ls", "l"},
+		Help:    "list environments",
+		Func:    listEnvironmentsTable,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:    "create",
-		Aliases: []string{"new"},
+		Aliases: []string{"new", "c", "add"},
 		Help:    "create a environment: environment create key [name]",
 		Func:    createEnvironment,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:      "delete",
-		Aliases:   []string{"remove"},
+		Aliases:   []string{"remove", "d", "del", "rm"},
 		Help:      "delete a environment: environment delete key",
 		Completer: environmentCompleter,
 		Func:      deleteEnvironment,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:      "switch",
-		Aliases:   []string{"select"},
+		Aliases:   []string{"select", "s", "sel"},
 		Help:      "switch the current environment",
 		Completer: environmentCompleter,
 		Func: func(c *ishell.Context) {
@@ -47,6 +48,7 @@ func AddEnvironmentCommands(shell *ishell.Shell) {
 			} else {
 				c.Printf("Switching to environment %s\n", foundEnvironment.Key)
 				api.CurrentEnvironment = foundEnvironment.Key
+				c.SetPrompt(api.CurrentProject + "/" + api.CurrentEnvironment + "> ")
 			}
 		},
 	})
@@ -112,13 +114,13 @@ func listEnvironmentsTable(c *ishell.Context) {
 
 }
 
-func environmentCompleterP(project string, prefix string, args []string) []string {
+func environmentCompleterP(project string, args []string) []string {
 	var completions []string
 	// TODO caching?
 	for _, key := range listEnvironmentKeysP(project) {
 		// fuzzy?
 		if len(args) == 0 || strings.HasPrefix(key, args[0]) {
-			completions = append(completions, prefix+key)
+			completions = append(completions, key)
 		}
 	}
 	return completions

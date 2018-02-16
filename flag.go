@@ -9,6 +9,7 @@ import (
 	"ldc/api/swagger"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/abiosoft/ishell"
 	"github.com/mattbaird/jsonpatch"
@@ -42,6 +43,30 @@ func AddFlagCommands(shell *ishell.Shell) {
 		Func:    createToggleFlag,
 	})
 	root.AddCmd(&ishell.Cmd{
+		Name:      "add-tag",
+		Help:      "add a tag to a flag: flag add-tag flag tag",
+		Completer: flagCompleter,
+		Func:      addTag,
+	})
+	root.AddCmd(&ishell.Cmd{
+		Name:      "remove-tag",
+		Help:      "remove a tag from a flag: flag remove-tag flag tag",
+		Completer: flagCompleter,
+		Func:      removeTag,
+	})
+	root.AddCmd(&ishell.Cmd{
+		Name:      "on",
+		Help:      "turn a boolean flag on",
+		Completer: flagCompleter,
+		Func:      on,
+	})
+	root.AddCmd(&ishell.Cmd{
+		Name:      "off",
+		Help:      "turn a boolean flag off",
+		Completer: flagCompleter,
+		Func:      off,
+	})
+	root.AddCmd(&ishell.Cmd{
 		Name:      "edit",
 		Help:      "edit a flag's json in a text editor",
 		Completer: flagCompleter,
@@ -71,9 +96,15 @@ func AddFlagCommands(shell *ishell.Shell) {
 				if err != nil {
 					panic(err)
 				}
+				buf := bytes.Buffer{}
+				table := tablewriter.NewWriter(&buf)
+				table.SetHeader([]string{"Status", "Last Requested"})
 				for _, status := range statuses.Items {
-					c.Printf("%v\n", status)
+					table.Append([]string{status.Name, status.LastRequested})
 				}
+				table.SetRowLine(true)
+				table.Render()
+				c.Println(buf.String())
 			}
 		},
 	})
@@ -91,6 +122,28 @@ func flagCompleter(args []string) []string {
 		}
 	}
 	return completions
+}
+
+func getFlagArg(c *ishell.Context) *swagger.FeatureFlag {
+	flags := listFlags()
+	var foundFlag *swagger.FeatureFlag
+	var flagKey string
+	if len(c.Args) > 0 {
+		flagKey = c.Args[0]
+		for _, flag := range flags {
+			if flag.Key == flagKey {
+				copy := flag
+				foundFlag = &copy
+			}
+		}
+	} else {
+		// TODO LOL
+		options := listFlagKeys()
+		choice := c.MultiChoice(options, "Choose an environment")
+		foundFlag = &flags[choice]
+		flagKey = foundFlag.Key
+	}
+	return foundFlag
 }
 
 func getFlag(key string) swagger.FeatureFlag {
@@ -121,8 +174,34 @@ func listFlagKeys() []string {
 
 func list(c *ishell.Context) {
 	if len(c.Args) > 0 {
-		flag := getFlag(c.Args[0])
-		c.Printf("%v\n", flag)
+		flag := getFlagArg(c)
+		c.Printf("Key: %s\n", flag.Key)
+		c.Printf("Name: %s\n", flag.Name)
+		c.Printf("Tags: %v\n", flag.Tags)
+		c.Printf("Kind: %s\n", flag.Kind)
+
+		if flag.Kind == "multivariate" {
+			c.Println("Variations:")
+			buf := bytes.Buffer{}
+			table := tablewriter.NewWriter(&buf)
+			table.SetHeader([]string{"Name", "Description", "Value"})
+			for _, variation := range flag.Variations {
+				table.Append([]string{variation.Name, variation.Description, fmt.Sprintf("%v", *variation.Value)})
+			}
+			table.SetRowLine(true)
+			table.Render()
+			c.Println(buf.String())
+		}
+
+		buf := bytes.Buffer{}
+		table := tablewriter.NewWriter(&buf)
+		table.SetHeader([]string{"Environment", "On", "Last Modified"})
+		for envKey, envStatus := range flag.Environments {
+			table.Append([]string{envKey, fmt.Sprintf("%v", envStatus.On), time.Unix(envStatus.LastModified/1000, 0).Format("2006/01/02 15:04")})
+		}
+		table.SetRowLine(true)
+		table.Render()
+		c.Println(buf.String())
 	} else {
 		flags := listFlags()
 		buf := bytes.Buffer{}
@@ -139,9 +218,6 @@ func list(c *ishell.Context) {
 			c.Print(buf.String())
 		}
 	}
-}
-
-func show(c *ishell.Context) {
 }
 
 func createToggleFlag(c *ishell.Context) {
@@ -174,13 +250,17 @@ func createToggleFlag(c *ishell.Context) {
 
 func editFlag(c *ishell.Context) {
 	// wow lol
-	flag := getFlag(c.Args[0])
+	flag := getFlagArg(c)
 	jsonbytes, _ := json.MarshalIndent(flag, "", "    ")
 	file, _ := ioutil.TempFile("/tmp", "ldc")
 	name := file.Name()
 	file.Write(jsonbytes)
-	fmt.Println(string(jsonbytes))
 	file.Close()
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vi"
+	}
+	// TODO why doesn't $EDITOR work? $PATH?
 	proc, err := os.StartProcess("/usr/local/bin/nvim", []string{"nvim", name}, &os.ProcAttr{Files: []*os.File{os.Stdin, os.Stdout, os.Stderr}})
 	proc.Wait()
 	if err != nil {
@@ -189,7 +269,10 @@ func editFlag(c *ishell.Context) {
 	file, _ = os.Open(name)
 	newBytes, _ := ioutil.ReadAll(file)
 	file.Close()
-	os.Remove(name)
+	err = os.Remove(name)
+	if err != nil {
+		panic(err)
+	}
 	patch, err := jsonpatch.CreatePatch(jsonbytes, newBytes)
 	if err != nil {
 		c.Println("you broke it (could not create json patch)")
@@ -204,23 +287,86 @@ func editFlag(c *ishell.Context) {
 		patchComment.Patch = append(patchComment.Patch, swagger.FlagsprojectKeyfeatureFlagKeyPatch{
 			Op:    op.Operation,
 			Path:  op.Path,
-			Value: op.Value.(string),
+			Value: op.Value,
 		})
 	}
 	patchComment.Comment = "Hey, this is a comment!"
-	_, _, err = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, c.Args[0], patchComment)
+	_, _, err = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
 	if err != nil {
 		// well duh
-		panic(err)
+		c.Err(err)
+	} else {
+		c.Println("Updated flag")
 	}
-	// var newFlag swagger.FeatureFlag
-	// json.Unmarshal(bytes, &newFlag)
-	// diff and patch flag
 }
 
-// add/remove tag
+func addTag(c *ishell.Context) {
+	flag := getFlagArg(c)
+	tag := c.Args[1]
+	var patchComment swagger.PatchComment
+	patchComment.Patch = []swagger.FlagsprojectKeyfeatureFlagKeyPatch{
+		swagger.FlagsprojectKeyfeatureFlagKeyPatch{
+			Op:    "add",
+			Path:  "/tags/-",
+			Value: tag,
+		},
+	}
+	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+}
+
+func removeTag(c *ishell.Context) {
+	flag := getFlagArg(c)
+	tag := c.Args[1]
+	index := -1
+	for i, taga := range flag.Tags {
+		if tag == taga {
+			index = i
+		}
+	}
+	if index < 0 {
+		c.Printf("Flag does not have tag %s", tag)
+	}
+	var patchComment swagger.PatchComment
+	patchComment.Patch = []swagger.FlagsprojectKeyfeatureFlagKeyPatch{
+		swagger.FlagsprojectKeyfeatureFlagKeyPatch{
+			Op:   "remove",
+			Path: fmt.Sprintf("/tags/%d", index),
+		},
+	}
+	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+}
+
+func on(c *ishell.Context) {
+	flag := getFlagArg(c)
+	var patchComment swagger.PatchComment
+	patchComment.Patch = []swagger.FlagsprojectKeyfeatureFlagKeyPatch{
+		swagger.FlagsprojectKeyfeatureFlagKeyPatch{
+			Op:    "replace",
+			Path:  fmt.Sprintf("/environments/%s/on", api.CurrentEnvironment),
+			Value: true,
+		},
+	}
+	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+}
+
+func off(c *ishell.Context) {
+	flag := getFlagArg(c)
+	var patchComment swagger.PatchComment
+	patchComment.Patch = []swagger.FlagsprojectKeyfeatureFlagKeyPatch{
+		swagger.FlagsprojectKeyfeatureFlagKeyPatch{
+			Op:    "replace",
+			Path:  fmt.Sprintf("/environments/%s/on", api.CurrentEnvironment),
+			Value: false,
+		},
+	}
+	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+}
+
+// add/remove tag, toggle on/off
 
 func createFlag(c *ishell.Context) {
+	// uhhh
+	createToggleFlag(c)
 }
 
 func deleteFlag(c *ishell.Context) {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"ldc/api"
 	"strings"
 	"time"
@@ -14,7 +13,7 @@ import (
 func AddAuditLogCommands(shell *ishell.Shell) {
 	root := &ishell.Cmd{
 		Name: "log",
-		Help: "Search audit log entries",
+		Help: "search audit log entries",
 		Func: func(c *ishell.Context) {
 			options := make(map[string]interface{})
 			if len(c.Args) > 0 {
@@ -33,11 +32,15 @@ func AddAuditLogCommands(shell *ishell.Shell) {
 			//table.SetHeader([]string{"Key", "Name"})
 			for _, entry := range entries.Items {
 
-				table.Append([]string{time.Unix(entry.Date/1000, 0).Format("2006/1/2 15:04:05"), entry.Title})
+				table.Append([]string{time.Unix(entry.Date/1000, 0).Format("2006/01/02 15:04:05"), entry.Title})
 			}
 			table.SetRowLine(true)
 			table.Render()
-			fmt.Println(buf.String())
+			if buf.Len() > 1000 {
+				c.ShowPaged(buf.String())
+			} else {
+				c.Println(buf.String())
+			}
 		},
 	}
 

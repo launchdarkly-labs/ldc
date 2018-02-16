@@ -99,6 +99,7 @@ func switchToProject(c *ishell.Context, project *swagger.Project) {
 		c.Printf("Switching to environment %s\n", environmentKey)
 		api.CurrentEnvironment = environmentKey
 	}
+	c.SetPrompt(api.CurrentProject + "/" + api.CurrentEnvironment + "> ")
 }
 
 func projectCompleter(args []string) []string {

@@ -10,6 +10,8 @@ import (
 var Auth context.Context
 var Client *swagger.APIClient
 
+var CurrentToken string
+var CurrentServer string
 var CurrentProject string
 var CurrentEnvironment string
 
@@ -34,6 +36,7 @@ func init() {
 
 // TODO
 func SetServer(newServer string) {
+	CurrentServer = newServer
 	Client = swagger.NewAPIClient(&swagger.Configuration{
 		BasePath: newServer,
 		HTTPClient: &http.Client{
@@ -45,6 +48,7 @@ func SetServer(newServer string) {
 }
 
 func SetToken(newToken string) {
+	CurrentToken = newToken
 	Auth = context.WithValue(context.Background(), swagger.ContextAPIKey, swagger.APIKey{
 		Key: newToken,
 	})

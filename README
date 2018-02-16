@@ -1,0 +1,9 @@
+This is very hacky and has no error handling.
+Features:
+- CRD Projects/Environments
+- CRUD Flags sort of
+- Lots of selection/autocomplete
+- Connect to different servers with different keys
+- Pages tables (fancy tables)
+- auditlog
+
