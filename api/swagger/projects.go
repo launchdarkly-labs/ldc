@@ -14,12 +14,5 @@ type Projects struct {
 
 	Links *Links `json:"_links,omitempty"`
 
-	// The unique resource id.
-	Id string `json:"_id,omitempty"`
-
-	Key string `json:"key,omitempty"`
-
-	Name string `json:"name,omitempty"`
-
 	Items []Project `json:"items,omitempty"`
 }

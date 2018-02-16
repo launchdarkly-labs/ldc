@@ -453,7 +453,7 @@ paths:
       summary: "Get a list of statuses for all feature flags. The status includes\
         \ the last time the feature flag was requested, as well as the state of the\
         \ flag."
-      operationId: "getFeatureFlagStatus"
+      operationId: "getFeatureFlagStatuses"
       parameters:
       - name: "projectKey"
         in: "path"
@@ -481,7 +481,7 @@ paths:
       tags:
       - "Feature flags"
       summary: "Get the status for a particular feature flag."
-      operationId: "getFeatureFlagStatuses"
+      operationId: "getFeatureFlagStatus"
       parameters:
       - name: "projectKey"
         in: "path"
@@ -2018,45 +2018,6 @@ definitions:
     properties:
       _links:
         $ref: "#/definitions/Links"
-      items:
-        type: "array"
-        items:
-          $ref: "#/definitions/Environment"
-    example:
-      _links:
-        self:
-          href: "/api/v2/endpoint"
-          type: "application/json"
-      items:
-      - apiKey: "XXX"
-        color: "417505"
-        _links:
-          self:
-            href: "/api/v2/endpoint"
-            type: "application/json"
-        name: "Production"
-        defaultTtl: 0.0
-        _id: "57ae15fc40cda6071f6c242e"
-        mobileKey: "XXX"
-        secureMode: false
-        key: "production"
-      - apiKey: "XXX"
-        color: "417505"
-        _links:
-          self:
-            href: "/api/v2/endpoint"
-            type: "application/json"
-        name: "Production"
-        defaultTtl: 0.0
-        _id: "57ae15fc40cda6071f6c242e"
-        mobileKey: "XXX"
-        secureMode: false
-        key: "production"
-  Projects:
-    type: "object"
-    properties:
-      _links:
-        $ref: "#/definitions/Links"
       _id:
         type: "string"
         example: "5a580a01b4ff89217bdf9dc1"
@@ -2067,6 +2028,48 @@ definitions:
       name:
         type: "string"
         example: "Zentasks"
+      environments:
+        type: "array"
+        items:
+          $ref: "#/definitions/Environment"
+    example:
+      _links:
+        self:
+          href: "/api/v2/endpoint"
+          type: "application/json"
+      environments:
+      - apiKey: "XXX"
+        color: "417505"
+        _links:
+          self:
+            href: "/api/v2/endpoint"
+            type: "application/json"
+        name: "Production"
+        defaultTtl: 0.0
+        _id: "57ae15fc40cda6071f6c242e"
+        mobileKey: "XXX"
+        secureMode: false
+        key: "production"
+      - apiKey: "XXX"
+        color: "417505"
+        _links:
+          self:
+            href: "/api/v2/endpoint"
+            type: "application/json"
+        name: "Production"
+        defaultTtl: 0.0
+        _id: "57ae15fc40cda6071f6c242e"
+        mobileKey: "XXX"
+        secureMode: false
+        key: "production"
+      name: "Zentasks"
+      _id: "5a580a01b4ff89217bdf9dc1"
+      key: "zentasks"
+  Projects:
+    type: "object"
+    properties:
+      _links:
+        $ref: "#/definitions/Links"
       items:
         type: "array"
         items:
@@ -2076,14 +2079,12 @@ definitions:
         self:
           href: "/api/v2/endpoint"
           type: "application/json"
-      name: "Zentasks"
-      _id: "5a580a01b4ff89217bdf9dc1"
       items:
       - _links:
           self:
             href: "/api/v2/endpoint"
             type: "application/json"
-        items:
+        environments:
         - apiKey: "XXX"
           color: "417505"
           _links:
@@ -2108,11 +2109,14 @@ definitions:
           mobileKey: "XXX"
           secureMode: false
           key: "production"
+        name: "Zentasks"
+        _id: "5a580a01b4ff89217bdf9dc1"
+        key: "zentasks"
       - _links:
           self:
             href: "/api/v2/endpoint"
             type: "application/json"
-        items:
+        environments:
         - apiKey: "XXX"
           color: "417505"
           _links:
@@ -2137,7 +2141,9 @@ definitions:
           mobileKey: "XXX"
           secureMode: false
           key: "production"
-      key: "zentasks"
+        name: "Zentasks"
+        _id: "5a580a01b4ff89217bdf9dc1"
+        key: "zentasks"
   Environment:
     type: "object"
     properties:

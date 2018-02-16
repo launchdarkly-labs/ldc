@@ -186,24 +186,26 @@ func (a *FeatureFlagsApiService) GetFeatureFlag(ctx context.Context, projectKey 
 	return successPayload, localVarHttpResponse, err
 }
 
-/* FeatureFlagsApiService Get a list of statuses for all feature flags. The status includes the last time the feature flag was requested, as well as the state of the flag.
+/* FeatureFlagsApiService Get the status for a particular feature flag.
  * @param ctx context.Context for authentication, logging, tracing, etc.
  @param projectKey The project key, used to tie the flags together under one project so they can be managed together.
  @param environmentKey The environment key, used to tie together flag configuration and users under one environment so they can be managed together.
- @return FeatureFlagStatuses*/
-func (a *FeatureFlagsApiService) GetFeatureFlagStatus(ctx context.Context, projectKey string, environmentKey string) (FeatureFlagStatuses,  *http.Response, error) {
+ @param featureFlagKey The feature flag&#39;s key. The key identifies the flag in your code.
+ @return FeatureFlagStatus*/
+func (a *FeatureFlagsApiService) GetFeatureFlagStatus(ctx context.Context, projectKey string, environmentKey string, featureFlagKey string) (FeatureFlagStatus,  *http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Get")
 		localVarPostBody interface{}
 		localVarFileName string
 		localVarFileBytes []byte
-	 	successPayload  FeatureFlagStatuses
+	 	successPayload  FeatureFlagStatus
 	)
 
 	// create path and map variables
-	localVarPath := a.client.cfg.BasePath + "/flag-statuses/{projectKey}/{environmentKey}"
+	localVarPath := a.client.cfg.BasePath + "/flag-statuses/{projectKey}/{environmentKey}/{featureFlagKey}"
 	localVarPath = strings.Replace(localVarPath, "{"+"projectKey"+"}", fmt.Sprintf("%v", projectKey), -1)
 	localVarPath = strings.Replace(localVarPath, "{"+"environmentKey"+"}", fmt.Sprintf("%v", environmentKey), -1)
+	localVarPath = strings.Replace(localVarPath, "{"+"featureFlagKey"+"}", fmt.Sprintf("%v", featureFlagKey), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
@@ -264,26 +266,24 @@ func (a *FeatureFlagsApiService) GetFeatureFlagStatus(ctx context.Context, proje
 	return successPayload, localVarHttpResponse, err
 }
 
-/* FeatureFlagsApiService Get the status for a particular feature flag.
+/* FeatureFlagsApiService Get a list of statuses for all feature flags. The status includes the last time the feature flag was requested, as well as the state of the flag.
  * @param ctx context.Context for authentication, logging, tracing, etc.
  @param projectKey The project key, used to tie the flags together under one project so they can be managed together.
  @param environmentKey The environment key, used to tie together flag configuration and users under one environment so they can be managed together.
- @param featureFlagKey The feature flag&#39;s key. The key identifies the flag in your code.
- @return FeatureFlagStatus*/
-func (a *FeatureFlagsApiService) GetFeatureFlagStatuses(ctx context.Context, projectKey string, environmentKey string, featureFlagKey string) (FeatureFlagStatus,  *http.Response, error) {
+ @return FeatureFlagStatuses*/
+func (a *FeatureFlagsApiService) GetFeatureFlagStatuses(ctx context.Context, projectKey string, environmentKey string) (FeatureFlagStatuses,  *http.Response, error) {
 	var (
 		localVarHttpMethod = strings.ToUpper("Get")
 		localVarPostBody interface{}
 		localVarFileName string
 		localVarFileBytes []byte
-	 	successPayload  FeatureFlagStatus
+	 	successPayload  FeatureFlagStatuses
 	)
 
 	// create path and map variables
-	localVarPath := a.client.cfg.BasePath + "/flag-statuses/{projectKey}/{environmentKey}/{featureFlagKey}"
+	localVarPath := a.client.cfg.BasePath + "/flag-statuses/{projectKey}/{environmentKey}"
 	localVarPath = strings.Replace(localVarPath, "{"+"projectKey"+"}", fmt.Sprintf("%v", projectKey), -1)
 	localVarPath = strings.Replace(localVarPath, "{"+"environmentKey"+"}", fmt.Sprintf("%v", environmentKey), -1)
-	localVarPath = strings.Replace(localVarPath, "{"+"featureFlagKey"+"}", fmt.Sprintf("%v", featureFlagKey), -1)
 
 	localVarHeaderParams := make(map[string]string)
 	localVarQueryParams := url.Values{}
