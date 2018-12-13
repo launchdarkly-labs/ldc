@@ -4,11 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	"ldc/api/swagger"
+	ldapi "github.com/launchdarkly/api-client-go"
 )
 
 var Auth context.Context
-var Client *swagger.APIClient
+var Client *ldapi.APIClient
 
 var CurrentToken string
 var CurrentServer string
@@ -26,7 +26,7 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 }
 
 func init() {
-	Client = swagger.NewAPIClient(&swagger.Configuration{
+	Client = ldapi.NewAPIClient(&ldapi.Configuration{
 		HTTPClient: &http.Client{
 			Transport: &LoggingTransport{},
 		},
@@ -37,7 +37,7 @@ func init() {
 // TODO
 func SetServer(newServer string) {
 	CurrentServer = newServer
-	Client = swagger.NewAPIClient(&swagger.Configuration{
+	Client = ldapi.NewAPIClient(&ldapi.Configuration{
 		BasePath: newServer,
 		HTTPClient: &http.Client{
 			Transport: &LoggingTransport{},
@@ -49,7 +49,7 @@ func SetServer(newServer string) {
 
 func SetToken(newToken string) {
 	CurrentToken = newToken
-	Auth = context.WithValue(context.Background(), swagger.ContextAPIKey, swagger.APIKey{
+	Auth = context.WithValue(context.Background(), ldapi.ContextAPIKey, ldapi.APIKey{
 		Key: newToken,
 	})
 }

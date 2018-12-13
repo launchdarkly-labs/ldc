@@ -2,11 +2,10 @@ package main
 
 import (
 	"flag"
-	"os"
 	"strings"
 
-	"ldc/api"
-	"ldc/config"
+	"github.com/launchdarkly/ldc/api"
+	"github.com/launchdarkly/ldc/config"
 
 	"github.com/abiosoft/ishell"
 )
@@ -63,21 +62,6 @@ func main() {
 				api.SetServer(conf.Server)
 				api.CurrentProject = conf.DefaultProject
 				api.CurrentEnvironment = conf.DefaultEnvironment
-			}
-		},
-	})
-
-	shell.AddCmd(&ishell.Cmd{
-		Name: "nyan",
-		Help: "don't do this",
-		Func: func(c *ishell.Context) {
-			proc, err := os.StartProcess("/Users/kevinbrackbill/code/go-nyancat/go-nyancat", []string{""}, &os.ProcAttr{
-				Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
-				Dir:   "/Users/kevinbrackbill/code/go-nyancat/",
-			})
-			proc.Wait()
-			if err != nil {
-				panic(err)
 			}
 		},
 	})

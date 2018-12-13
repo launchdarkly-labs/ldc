@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
-	"ldc/api"
-	"ldc/api/swagger"
 	"strings"
 
 	"github.com/abiosoft/ishell"
 	"github.com/olekukonko/tablewriter"
+
+	ldapi "github.com/launchdarkly/api-client-go"
+	"github.com/launchdarkly/ldc/api"
 )
 
 func AddEnvironmentCommands(shell *ishell.Shell) {
@@ -56,7 +57,7 @@ func AddEnvironmentCommands(shell *ishell.Shell) {
 	shell.AddCmd(root)
 }
 
-func listEnvironmentsP(projectKey string) []swagger.Environment {
+func listEnvironmentsP(projectKey string) []ldapi.Environment {
 	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, projectKey)
 	if err != nil {
 		panic(err)
@@ -64,7 +65,7 @@ func listEnvironmentsP(projectKey string) []swagger.Environment {
 	return project.Environments
 }
 
-func listEnvironments() []swagger.Environment {
+func listEnvironments() []ldapi.Environment {
 	// TODO other project options
 	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, api.CurrentProject)
 	if err != nil {
@@ -138,9 +139,9 @@ func environmentCompleter(args []string) []string {
 	return completions
 }
 
-func getEnvironmentArg(c *ishell.Context) *swagger.Environment {
+func getEnvironmentArg(c *ishell.Context) *ldapi.Environment {
 	environments := listEnvironments()
-	var foundEnvironment *swagger.Environment
+	var foundEnvironment *ldapi.Environment
 	var environmentKey string
 	if len(c.Args) > 0 {
 		environmentKey = c.Args[0]
@@ -172,7 +173,7 @@ func createEnvironment(c *ishell.Context) {
 		key = c.Args[0]
 		name = c.Args[1]
 	}
-	_, err := api.Client.EnvironmentsApi.PostEnvironment(api.Auth, api.CurrentProject, swagger.EnvironmentBody{Key: key, Name: name, Color: "000000"})
+	_, err := api.Client.EnvironmentsApi.PostEnvironment(api.Auth, api.CurrentProject, ldapi.EnvironmentPost{Key: key, Name: name, Color: "000000"})
 	if err != nil {
 		panic(err)
 	}

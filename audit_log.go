@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
-	"ldc/api"
 	"strings"
 	"time"
 
 	"github.com/abiosoft/ishell"
 	"github.com/olekukonko/tablewriter"
+
+	"github.com/launchdarkly/ldc/api"
 )
 
 func AddAuditLogCommands(shell *ishell.Shell) {

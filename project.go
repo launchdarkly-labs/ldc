@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
-	"ldc/api"
-	"ldc/api/swagger"
 	"strings"
 
 	"github.com/abiosoft/ishell"
 	"github.com/olekukonko/tablewriter"
+
+	ldapi "github.com/launchdarkly/api-client-go"
+	"github.com/launchdarkly/ldc/api"
 )
 
 func AddProjectCommands(shell *ishell.Shell) {
@@ -52,7 +53,7 @@ func AddProjectCommands(shell *ishell.Shell) {
 	shell.AddCmd(root)
 }
 
-func listProjects() []swagger.Project {
+func listProjects() []ldapi.Project {
 	projects, _, err := api.Client.ProjectsApi.GetProjects(api.Auth)
 	if err != nil {
 		panic(err)
@@ -87,7 +88,7 @@ func listProjectsTable(c *ishell.Context) {
 	}
 }
 
-func switchToProject(c *ishell.Context, project *swagger.Project) {
+func switchToProject(c *ishell.Context, project *ldapi.Project) {
 	c.Printf("Switching to project %s\n", project.Key)
 	api.CurrentProject = project.Key
 
@@ -114,9 +115,9 @@ func projectCompleter(args []string) []string {
 	return completions
 }
 
-func getProjectArg(c *ishell.Context) *swagger.Project {
+func getProjectArg(c *ishell.Context) *ldapi.Project {
 	projects := listProjects()
-	var foundProject *swagger.Project
+	var foundProject *ldapi.Project
 	if len(c.Args) > 0 {
 		projectKey := c.Args[0]
 		for _, project := range projects {
@@ -149,7 +150,7 @@ func createProject(c *ishell.Context) {
 		key = c.Args[0]
 		name = c.Args[1]
 	}
-	_, err := api.Client.ProjectsApi.PostProject(api.Auth, swagger.ProjectBody{Key: key, Name: name})
+	_, err := api.Client.ProjectsApi.PostProject(api.Auth, ldapi.ProjectBody{Key: key, Name: name})
 	if err != nil {
 		panic(err)
 	}

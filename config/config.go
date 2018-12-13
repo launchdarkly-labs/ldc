@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 )
 
 type ConfigFile map[string]Config
@@ -19,8 +20,7 @@ type Config struct {
 func ReadConfig(creds string) (Config, error) {
 	var config Config
 	homedir := os.Getenv("HOME")
-	// TODO path separator
-	configFileName := homedir + "/.config/ldc.json"
+	configFileName := filepath.Join(homedir, ".config", "ldc.json")
 	configFile, err := os.Open(configFileName)
 	defer configFile.Close()
 	if err == nil {
