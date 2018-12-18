@@ -8,7 +8,7 @@ import (
 	"github.com/abiosoft/ishell"
 	"github.com/olekukonko/tablewriter"
 
-	ldapi "github.com/launchdarkly/api-client-go"
+	"github.com/launchdarkly/api-client-go"
 	"github.com/launchdarkly/ldc/api"
 )
 
@@ -54,26 +54,33 @@ func AddProjectCommands(shell *ishell.Shell) {
 	shell.AddCmd(root)
 }
 
-func listProjects() []ldapi.Project {
+func listProjects() ([]ldapi.Project, error) {
 	projects, _, err := api.Client.ProjectsApi.GetProjects(api.Auth)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return projects.Items
+	return projects.Items, nil
 }
 
-func listProjectKeys() []string {
+func listProjectKeys() ([]string, error) {
 	//TODO errors
 	var keys []string
-	projects, _, _ := api.Client.ProjectsApi.GetProjects(api.Auth)
+	projects, _, err := api.Client.ProjectsApi.GetProjects(api.Auth)
+	if err != nil {
+		return nil, err
+	}
 	for _, project := range projects.Items {
 		keys = append(keys, project.Key)
 	}
-	return keys
+	return keys, nil
 }
 
 func listProjectsTable(c *ishell.Context) {
-	projects := listProjects()
+	projects, err := listProjects()
+	if err != nil {
+		c.Err(err)
+		return
+	}
 	buf := bytes.Buffer{}
 	table := tablewriter.NewWriter(&buf)
 	table.SetHeader([]string{"Key", "Name"})
@@ -107,7 +114,11 @@ func switchToProject(c *ishell.Context, project *ldapi.Project) {
 func projectCompleter(args []string) []string {
 	var completions []string
 	// TODO caching?
-	for _, key := range listProjectKeys() {
+	keys, err := listProjectKeys()
+	if err != nil {
+		return nil
+	}
+	for _, key := range keys {
 		// fuzzy?
 		if len(args) == 0 || strings.HasPrefix(key, args[0]) {
 			completions = append(completions, key)
@@ -117,7 +128,11 @@ func projectCompleter(args []string) []string {
 }
 
 func getProjectArg(c *ishell.Context) *ldapi.Project {
-	projects := listProjects()
+	projects, err := listProjects()
+	if err != nil {
+		c.Err(err)
+		return nil
+	}
 	var foundProject *ldapi.Project
 	if len(c.Args) > 0 {
 		projectKey := c.Args[0]
@@ -132,7 +147,11 @@ func getProjectArg(c *ishell.Context) *ldapi.Project {
 		}
 	} else {
 		// TODO LOL
-		options := listProjectKeys()
+		options, err := listProjectKeys()
+		if err != nil {
+			c.Err(err)
+			return nil
+		}
 		choice := c.MultiChoice(options, "Choose a project")
 		foundProject = &projects[choice]
 	}
@@ -155,25 +174,30 @@ func createProject(c *ishell.Context) {
 		c.Err(errors.New("too many arguments.  Expected arguments are: key [name]."))
 		return
 	}
-	_, err := api.Client.ProjectsApi.PostProject(api.Auth, ldapi.ProjectBody{Key: key, Name: name})
-	if err != nil {
-		panic(err)
+	if _, err := api.Client.ProjectsApi.PostProject(api.Auth, ldapi.ProjectBody{Key: key, Name: name}); err != nil {
+		c.Err(err)
+		return
 	}
 	c.Printf("Created project %s\n", key)
 	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, key)
 	if err != nil {
-		panic(err)
+		c.Err(err)
+		return
 	}
 	switchToProject(c, &project)
 }
 
 func deleteProject(c *ishell.Context) {
 	project := getProjectArg(c)
+	if project != nil {
+		return
+	}
 	confirmDelete(c, "project key", project.Key)
 	if project != nil {
 		_, err := api.Client.ProjectsApi.DeleteProject(api.Auth, project.Key)
 		if err != nil {
-			panic(err)
+			c.Err(err)
+			return
 		}
 		c.Printf("Deleted project %s\n", project.Key)
 	}
