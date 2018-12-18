@@ -138,7 +138,7 @@ func main() {
 	if flag.NArg() > 0 {
 		shell.Process(flag.Args()...)
 	} else {
-		shell.Println("LaunchDarkly CLI v0.0.1")
+		shell.Printf("LaunchDarkly CLI %s\n", Version)
 		shell.Process("pwd")
 		shell.Run()
 	}
