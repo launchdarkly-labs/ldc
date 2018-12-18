@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 
 	"github.com/abiosoft/ishell"
@@ -165,13 +166,17 @@ func createEnvironment(c *ishell.Context) {
 	var key, name string
 	switch len(c.Args) {
 	case 0:
-		c.Println("Please supply at least a key for the new environment")
+		c.Err(errors.New("please supply at least a key for the new environment"))
+		return
 	case 1:
 		key = c.Args[0]
 		name = key
 	case 2:
 		key = c.Args[0]
 		name = c.Args[1]
+	default:
+		c.Err(errors.New("too many arguments.  Expected arguments are: key [name]."))
+		return
 	}
 	_, err := api.Client.EnvironmentsApi.PostEnvironment(api.Auth, api.CurrentProject, ldapi.EnvironmentPost{Key: key, Name: name, Color: "000000"})
 	if err != nil {
@@ -184,6 +189,9 @@ func createEnvironment(c *ishell.Context) {
 
 func deleteEnvironment(c *ishell.Context) {
 	environment := getEnvironmentArg(c)
+	if !confirmDelete(c, "environment key", environment.Key) {
+		return
+	}
 	if environment != nil {
 		_, err := api.Client.EnvironmentsApi.DeleteEnvironment(api.Auth, api.CurrentProject, environment.Key)
 		if err != nil {

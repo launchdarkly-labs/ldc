@@ -17,6 +17,7 @@ import (
 )
 
 var cfgFile string
+var interactive bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -172,6 +173,7 @@ func RootCmd(cmd *cobra.Command, args []string) {
 	if flag.NArg() > 0 {
 		shell.Process(flag.Args()...)
 	} else {
+		interactive = true
 		shell.Printf("LaunchDarkly CLI %s\n", Version)
 		shell.Process("pwd")
 		shell.Run()
