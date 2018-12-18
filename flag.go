@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"ldc/api"
-	"ldc/api/swagger"
 	"os"
 	"strings"
 	"time"
+
+	ldapi "github.com/launchdarkly/api-client-go"
+	"github.com/launchdarkly/ldc/api"
 
 	"github.com/abiosoft/ishell"
 	"github.com/mattbaird/jsonpatch"
@@ -124,9 +125,9 @@ func flagCompleter(args []string) []string {
 	return completions
 }
 
-func getFlagArg(c *ishell.Context) *swagger.FeatureFlag {
+func getFlagArg(c *ishell.Context) *ldapi.FeatureFlag {
 	flags := listFlags()
-	var foundFlag *swagger.FeatureFlag
+	var foundFlag *ldapi.FeatureFlag
 	var flagKey string
 	if len(c.Args) > 0 {
 		flagKey = c.Args[0]
@@ -146,7 +147,7 @@ func getFlagArg(c *ishell.Context) *swagger.FeatureFlag {
 	return foundFlag
 }
 
-func getFlag(key string) swagger.FeatureFlag {
+func getFlag(key string) ldapi.FeatureFlag {
 	// TODO other projects
 	flag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, key, nil)
 	if err != nil {
@@ -155,7 +156,7 @@ func getFlag(key string) swagger.FeatureFlag {
 	return flag
 }
 
-func listFlags() []swagger.FeatureFlag {
+func listFlags() []ldapi.FeatureFlag {
 	// TODO other projects
 	flags, _, err := api.Client.FeatureFlagsApi.GetFeatureFlags(api.Auth, api.CurrentProject, nil)
 	if err != nil {
@@ -235,14 +236,14 @@ func createToggleFlag(c *ishell.Context) {
 	var t, f interface{}
 	t = true
 	f = false
-	_, err := api.Client.FeatureFlagsApi.PostFeatureFlag(api.Auth, api.CurrentProject, swagger.FeatureFlagBody{
+	_, err := api.Client.FeatureFlagsApi.PostFeatureFlag(api.Auth, api.CurrentProject, ldapi.FeatureFlagBody{
 		Name: name,
 		Key:  key,
-		Variations: []swagger.Variation{
-			swagger.Variation{Value: &t},
-			swagger.Variation{Value: &f},
+		Variations: []ldapi.Variation{
+			ldapi.Variation{Value: &t},
+			ldapi.Variation{Value: &f},
 		},
-	})
+	}, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -278,16 +279,16 @@ func editFlag(c *ishell.Context) {
 		c.Println("you broke it (could not create json patch)")
 		return
 	}
-	var patchComment swagger.PatchComment
+	var patchComment ldapi.PatchComment
 	if len(patch) == 0 {
 		c.Println("Flag unchanged")
 		return
 	}
 	for _, op := range patch {
-		patchComment.Patch = append(patchComment.Patch, swagger.FlagsprojectKeyfeatureFlagKeyPatch{
+		patchComment.Patch = append(patchComment.Patch, ldapi.PatchOperation{
 			Op:    op.Operation,
 			Path:  op.Path,
-			Value: op.Value,
+			Value: &op.Value,
 		})
 	}
 	patchComment.Comment = "Hey, this is a comment!"
@@ -303,14 +304,12 @@ func editFlag(c *ishell.Context) {
 func addTag(c *ishell.Context) {
 	flag := getFlagArg(c)
 	tag := c.Args[1]
-	var patchComment swagger.PatchComment
-	patchComment.Patch = []swagger.FlagsprojectKeyfeatureFlagKeyPatch{
-		swagger.FlagsprojectKeyfeatureFlagKeyPatch{
-			Op:    "add",
-			Path:  "/tags/-",
-			Value: tag,
-		},
-	}
+	var patchComment ldapi.PatchComment
+	patchComment.Patch = []ldapi.PatchOperation{{
+		Op:    "add",
+		Path:  "/tags/-",
+		Value: interfacePtr(tag),
+	}}
 	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
 }
 
@@ -326,39 +325,33 @@ func removeTag(c *ishell.Context) {
 	if index < 0 {
 		c.Printf("Flag does not have tag %s", tag)
 	}
-	var patchComment swagger.PatchComment
-	patchComment.Patch = []swagger.FlagsprojectKeyfeatureFlagKeyPatch{
-		swagger.FlagsprojectKeyfeatureFlagKeyPatch{
-			Op:   "remove",
-			Path: fmt.Sprintf("/tags/%d", index),
-		},
-	}
+	var patchComment ldapi.PatchComment
+	patchComment.Patch = []ldapi.PatchOperation{{
+		Op:   "remove",
+		Path: fmt.Sprintf("/tags/%d", index),
+	}}
 	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
 }
 
 func on(c *ishell.Context) {
 	flag := getFlagArg(c)
-	var patchComment swagger.PatchComment
-	patchComment.Patch = []swagger.FlagsprojectKeyfeatureFlagKeyPatch{
-		swagger.FlagsprojectKeyfeatureFlagKeyPatch{
-			Op:    "replace",
-			Path:  fmt.Sprintf("/environments/%s/on", api.CurrentEnvironment),
-			Value: true,
-		},
-	}
+	var patchComment ldapi.PatchComment
+	patchComment.Patch = []ldapi.PatchOperation{{
+		Op:    "replace",
+		Path:  fmt.Sprintf("/environments/%s/on", api.CurrentEnvironment),
+		Value: interfacePtr(true),
+	}}
 	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
 }
 
 func off(c *ishell.Context) {
 	flag := getFlagArg(c)
-	var patchComment swagger.PatchComment
-	patchComment.Patch = []swagger.FlagsprojectKeyfeatureFlagKeyPatch{
-		swagger.FlagsprojectKeyfeatureFlagKeyPatch{
-			Op:    "replace",
-			Path:  fmt.Sprintf("/environments/%s/on", api.CurrentEnvironment),
-			Value: false,
-		},
-	}
+	var patchComment ldapi.PatchComment
+	patchComment.Patch = []ldapi.PatchOperation{{
+		Op:    "replace",
+		Path:  fmt.Sprintf("/environments/%s/on", api.CurrentEnvironment),
+		Value: interfacePtr(false),
+	}}
 	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
 }
 
@@ -370,4 +363,8 @@ func createFlag(c *ishell.Context) {
 }
 
 func deleteFlag(c *ishell.Context) {
+}
+
+func interfacePtr(i interface{}) *interface{} {
+	return &i
 }
