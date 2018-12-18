@@ -1,3 +1,3 @@
-package main
+package cmd
 
 const Version = "0.0.1"

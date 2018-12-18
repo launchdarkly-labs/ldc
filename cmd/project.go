@@ -1,7 +1,8 @@
-package main
+package cmd
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 
 	"github.com/abiosoft/ishell"
@@ -142,13 +143,17 @@ func createProject(c *ishell.Context) {
 	var key, name string
 	switch len(c.Args) {
 	case 0:
-		c.Println("Please supply at least a key for the new project")
+		c.Err(errors.New("please supply at least a key for the new environment"))
+		return
 	case 1:
 		key = c.Args[0]
 		name = key
 	case 2:
 		key = c.Args[0]
 		name = c.Args[1]
+	default:
+		c.Err(errors.New("too many arguments.  Expected arguments are: key [name]."))
+		return
 	}
 	_, err := api.Client.ProjectsApi.PostProject(api.Auth, ldapi.ProjectBody{Key: key, Name: name})
 	if err != nil {
@@ -164,6 +169,7 @@ func createProject(c *ishell.Context) {
 
 func deleteProject(c *ishell.Context) {
 	project := getProjectArg(c)
+	confirmDelete(c, "project key", project.Key)
 	if project != nil {
 		_, err := api.Client.ProjectsApi.DeleteProject(api.Auth, project.Key)
 		if err != nil {

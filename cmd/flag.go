@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"bytes"
@@ -363,6 +363,7 @@ func createFlag(c *ishell.Context) {
 }
 
 func deleteFlag(c *ishell.Context) {
+	c.Println("Not implemented")
 }
 
 func interfacePtr(i interface{}) *interface{} {
