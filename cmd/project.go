@@ -63,7 +63,6 @@ func listProjects() ([]ldapi.Project, error) {
 }
 
 func listProjectKeys() ([]string, error) {
-	//TODO errors
 	var keys []string
 	projects, _, err := api.Client.ProjectsApi.GetProjects(api.Auth)
 	if err != nil {

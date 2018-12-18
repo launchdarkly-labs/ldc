@@ -76,7 +76,6 @@ func listEnvironments() ([]ldapi.Environment, error) {
 }
 
 func listEnvironmentKeysP(project string) ([]string, error) {
-	//TODO errors
 	var keys []string
 	environments, err := listEnvironmentsP(project)
 	if err != nil {
@@ -88,7 +87,6 @@ func listEnvironmentKeysP(project string) ([]string, error) {
 	return keys, nil
 }
 func listEnvironmentKeys() ([]string, error) {
-	//TODO errors
 	var keys []string
 	environments, err := listEnvironments()
 	if err != nil {
