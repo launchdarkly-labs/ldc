@@ -58,46 +58,51 @@ func AddEnvironmentCommands(shell *ishell.Shell) {
 	shell.AddCmd(root)
 }
 
-func listEnvironmentsP(projectKey string) []ldapi.Environment {
+func listEnvironmentsP(projectKey string) ([]ldapi.Environment, error) {
 	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, projectKey)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return project.Environments
+	return project.Environments, nil
 }
 
-func listEnvironments() []ldapi.Environment {
+func listEnvironments() ([]ldapi.Environment, error) {
 	// TODO other project options
 	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, api.CurrentProject)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return project.Environments
+	return project.Environments, nil
 }
 
-func listEnvironmentKeysP(project string) []string {
-	//TODO errors
+func listEnvironmentKeysP(project string) ([]string, error) {
 	var keys []string
-	environments := listEnvironmentsP(project)
+	environments, err := listEnvironmentsP(project)
+	if err != nil {
+		return nil, err
+	}
 	for _, environment := range environments {
 		keys = append(keys, environment.Key)
 	}
-	return keys
+	return keys, nil
 }
-func listEnvironmentKeys() []string {
-	//TODO errors
+func listEnvironmentKeys() ([]string, error) {
 	var keys []string
-	environments := listEnvironments()
+	environments, err := listEnvironments()
+	if err != nil {
+		return nil, err
+	}
 	for _, environment := range environments {
 		keys = append(keys, environment.Key)
 	}
-	return keys
+	return keys, nil
 }
 
 func listEnvironmentsTable(c *ishell.Context) {
 	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, api.CurrentProject)
 	if err != nil {
-		panic(err)
+		c.Err(err)
+		return
 	}
 	c.Println("Environments for " + project.Name)
 	buf := bytes.Buffer{}
@@ -119,7 +124,11 @@ func listEnvironmentsTable(c *ishell.Context) {
 func environmentCompleterP(project string, args []string) []string {
 	var completions []string
 	// TODO caching?
-	for _, key := range listEnvironmentKeysP(project) {
+	keys, err := listEnvironmentKeysP(project)
+	if err != nil {
+		return nil
+	}
+	for _, key := range keys {
 		// fuzzy?
 		if len(args) == 0 || strings.HasPrefix(key, args[0]) {
 			completions = append(completions, key)
@@ -131,7 +140,11 @@ func environmentCompleterP(project string, args []string) []string {
 func environmentCompleter(args []string) []string {
 	var completions []string
 	// TODO caching?
-	for _, key := range listEnvironmentKeys() {
+	keys, err := listEnvironmentKeys()
+	if err != nil {
+		return nil
+	}
+	for _, key := range keys {
 		// fuzzy?
 		if len(args) == 0 || strings.HasPrefix(key, args[0]) {
 			completions = append(completions, key)
@@ -141,7 +154,11 @@ func environmentCompleter(args []string) []string {
 }
 
 func getEnvironmentArg(c *ishell.Context) *ldapi.Environment {
-	environments := listEnvironments()
+	environments, err := listEnvironments()
+	if err != nil {
+		c.Err(err)
+		return nil
+	}
 	var foundEnvironment *ldapi.Environment
 	var environmentKey string
 	if len(c.Args) > 0 {
@@ -154,7 +171,11 @@ func getEnvironmentArg(c *ishell.Context) *ldapi.Environment {
 		}
 	} else {
 		// TODO LOL
-		options := listEnvironmentKeys()
+		options, err := listEnvironmentKeys()
+		if err != nil {
+			c.Err(err)
+			return nil
+		}
 		choice := c.MultiChoice(options, "Choose an environment")
 		foundEnvironment = &environments[choice]
 		environmentKey = foundEnvironment.Key
@@ -180,7 +201,8 @@ func createEnvironment(c *ishell.Context) {
 	}
 	_, err := api.Client.EnvironmentsApi.PostEnvironment(api.Auth, api.CurrentProject, ldapi.EnvironmentPost{Key: key, Name: name, Color: "000000"})
 	if err != nil {
-		panic(err)
+		c.Err(err)
+		return
 	}
 	c.Printf("Created environment %s\n", key)
 	c.Printf("Switching to environment %s\n", key)
@@ -189,13 +211,17 @@ func createEnvironment(c *ishell.Context) {
 
 func deleteEnvironment(c *ishell.Context) {
 	environment := getEnvironmentArg(c)
+	if environment == nil {
+		return
+	}
 	if !confirmDelete(c, "environment key", environment.Key) {
 		return
 	}
 	if environment != nil {
 		_, err := api.Client.EnvironmentsApi.DeleteEnvironment(api.Auth, api.CurrentProject, environment.Key)
 		if err != nil {
-			panic(err)
+			c.Err(err)
+			return
 		}
 		c.Printf("Deleted environment %s\n", environment.Key)
 	}

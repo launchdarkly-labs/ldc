@@ -88,14 +88,16 @@ func AddFlagCommands(shell *ishell.Shell) {
 			if len(c.Args) > 0 {
 				status, _, err := api.Client.FeatureFlagsApi.GetFeatureFlagStatus(api.Auth, api.CurrentProject, api.CurrentEnvironment, c.Args[0])
 				if err != nil {
-					panic(err)
+					c.Err(err)
+					return
 				}
 				c.Println("Status: " + status.Name)
 				c.Printf("Last Requested: %v\n", status.LastRequested)
 			} else {
 				statuses, _, err := api.Client.FeatureFlagsApi.GetFeatureFlagStatuses(api.Auth, api.CurrentProject, api.CurrentEnvironment)
 				if err != nil {
-					panic(err)
+					c.Err(err)
+					return
 				}
 				buf := bytes.Buffer{}
 				table := tablewriter.NewWriter(&buf)
@@ -116,7 +118,11 @@ func AddFlagCommands(shell *ishell.Shell) {
 func flagCompleter(args []string) []string {
 	var completions []string
 	// TODO caching?
-	for _, key := range listFlagKeys() {
+	flags, err := listFlagKeys()
+	if err != nil {
+		return nil
+	}
+	for _, key := range flags {
 		// fuzzy?
 		if len(args) == 0 || strings.HasPrefix(key, args[0]) {
 			completions = append(completions, key)
@@ -126,7 +132,11 @@ func flagCompleter(args []string) []string {
 }
 
 func getFlagArg(c *ishell.Context) *ldapi.FeatureFlag {
-	flags := listFlags()
+	flags, err := listFlags()
+	if err != nil {
+		c.Err(err)
+		return nil
+	}
 	var foundFlag *ldapi.FeatureFlag
 	var flagKey string
 	if len(c.Args) > 0 {
@@ -139,7 +149,11 @@ func getFlagArg(c *ishell.Context) *ldapi.FeatureFlag {
 		}
 	} else {
 		// TODO LOL
-		options := listFlagKeys()
+		options, err := listFlagKeys()
+		if err != nil {
+			c.Err(err)
+			return nil
+		}
 		choice := c.MultiChoice(options, "Choose an environment")
 		foundFlag = &flags[choice]
 		flagKey = foundFlag.Key
@@ -147,30 +161,25 @@ func getFlagArg(c *ishell.Context) *ldapi.FeatureFlag {
 	return foundFlag
 }
 
-func getFlag(key string) ldapi.FeatureFlag {
-	// TODO other projects
-	flag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, key, nil)
-	if err != nil {
-		panic(err)
-	}
-	return flag
-}
-
-func listFlags() []ldapi.FeatureFlag {
+func listFlags() ([]ldapi.FeatureFlag, error) {
 	// TODO other projects
 	flags, _, err := api.Client.FeatureFlagsApi.GetFeatureFlags(api.Auth, api.CurrentProject, nil)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return flags.Items
+	return flags.Items, nil
 }
 
-func listFlagKeys() []string {
+func listFlagKeys() ([]string, error) {
 	var keys []string
-	for _, flag := range listFlags() {
+	flags, err := listFlags()
+	if err != nil {
+		return nil, err
+	}
+	for _, flag := range flags {
 		keys = append(keys, flag.Key)
 	}
-	return keys
+	return keys, nil
 }
 
 func list(c *ishell.Context) {
@@ -204,7 +213,11 @@ func list(c *ishell.Context) {
 		table.Render()
 		c.Println(buf.String())
 	} else {
-		flags := listFlags()
+		flags, err := listFlags()
+		if err != nil {
+			c.Err(err)
+			return
+		}
 		buf := bytes.Buffer{}
 		table := tablewriter.NewWriter(&buf)
 		table.SetHeader([]string{"Key", "Name", "Description"})
@@ -245,7 +258,8 @@ func createToggleFlag(c *ishell.Context) {
 		},
 	}, nil)
 	if err != nil {
-		panic(err)
+		c.Err(err)
+		return
 	}
 }
 
@@ -265,14 +279,16 @@ func editFlag(c *ishell.Context) {
 	proc, err := os.StartProcess("/usr/local/bin/nvim", []string{"nvim", name}, &os.ProcAttr{Files: []*os.File{os.Stdin, os.Stdout, os.Stderr}})
 	proc.Wait()
 	if err != nil {
-		panic(err)
+		c.Err(err)
+		return
 	}
 	file, _ = os.Open(name)
 	newBytes, _ := ioutil.ReadAll(file)
 	file.Close()
 	err = os.Remove(name)
 	if err != nil {
-		panic(err)
+		c.Err(err)
+		return
 	}
 	patch, err := jsonpatch.CreatePatch(jsonbytes, newBytes)
 	if err != nil {
