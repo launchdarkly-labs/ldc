@@ -1,23 +1,16 @@
 # LaunchDarkly CLI Client/Shell
 
-This is very hacky and has no error handling.
-Features:
-- CRD Projects/Environments
-- CRUD Flags sort of
-- Lots of selection/autocomplete
-- Connect to different servers with different keys
-- Pages tables (fancy tables)
-- auditlog
-
-
+*This is BETA software until version 1.0 and the interface may change.*
+ 
 ## Configuration
 
-Right now we use expect a `~/.config/ldc.json` that looks like:
+
+You may specific `~/.config/ldc.json` that looks like:
 
 ```
 {
   "staging": {
-    "apiToken": "your api token",
+    "token": "your api token",
     "server": "https://app.launchdarkly.com/api/v2",
     "defaultProject": "default",
     "defaultEnvironment": "production"
