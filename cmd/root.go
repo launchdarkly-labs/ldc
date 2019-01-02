@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/abiosoft/ishell"
@@ -16,6 +17,7 @@ import (
 	"github.com/launchdarkly/ldc/api"
 )
 
+var currentConfig string
 var cfgFile string
 var interactive bool
 
@@ -35,11 +37,21 @@ func Execute() {
 	}
 }
 
+type Config struct {
+	ApiToken           string
+	Server             string
+	DefaultProject     string
+	DefaultEnvironment string
+}
+
+var configFile map[string]Config
+
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	configViper := viper.New()
 	if cfgFile != "" {
 		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
+		configViper.SetConfigFile(cfgFile)
 	} else {
 		// Find home directory.
 		home, err := homedir.Dir()
@@ -48,56 +60,102 @@ func initConfig() {
 			os.Exit(1)
 		}
 
-		viper.AddConfigPath(home)
-		viper.AddConfigPath(".")
-		viper.SetEnvPrefix("ldc")
-		viper.SetConfigName("ldc")
+		configViper.AddConfigPath(home)
+		configViper.AddConfigPath(filepath.Join(home, ".config"))
+		configViper.AddConfigPath(".")
+		configViper.SetConfigName("ldc")
 	}
 
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	if err := configViper.ReadInConfig(); err == nil {
+		fmt.Println("Using config file:", configViper.ConfigFileUsed())
+		if err := configViper.Unmarshal(&configFile); err != nil {
+			fmt.Fprintf(os.Stderr, "Unable to parse config file: %s", err)
+			os.Exit(1)
+		}
 	}
 }
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	viper.AutomaticEnv()
-	viper.SetEnvPrefix("ldc")
-	viper.SetConfigName("ldc")
 
 	pflag.String("token", "", "api key (e.g. api-...)")
 	pflag.String("server", "https://app.launchdarkly.com/api/v2", "alternate server base url")
-	pflag.String("project", "default", "Default project key")
-	pflag.String("environment", "default", "Default environment key")
+	pflag.String("project", "default", "Project key")
+	pflag.String("environment", "default", "Environment key")
+	pflag.String("config", "", "Configuration to use")
 	pflag.Parse()
 
+	viper.AutomaticEnv()
+	viper.SetEnvPrefix("ldc")
+	viper.SetConfigName("ldc")
 	viper.BindPFlags(pflag.CommandLine)
 }
 
 func RootCmd(cmd *cobra.Command, args []string) {
+	configs, err := listConfigs()
+	if err != nil {
+		configs = nil
+	}
+
+	config := viper.GetString("config")
+
+	// Assume we can use the single config if there is only one
+	if config == "" && len(configs) == 1 {
+		for name := range configs {
+			config = name
+			break
+		}
+	}
+
+	if config != "" {
+		found := false
+		for name, v := range configs {
+			if name == config {
+				setConfig(name, v)
+				found = true
+				break
+			}
+		}
+		if !found {
+			fmt.Fprintf(os.Stderr, `Unable to find config "%s"`, config)
+			os.Exit(1)
+		}
+	}
+
+	if viper.IsSet("token") {
+		if token := viper.GetString("token"); token != "" {
+			api.SetToken(token)
+		}
+	}
+	if viper.IsSet("server") {
+		if server := viper.GetString("server"); server != "" {
+			api.SetServer(server)
+		}
+	}
+	if viper.IsSet("project") {
+		if project := viper.GetString("project"); project != "" {
+			api.CurrentProject = project
+		}
+	}
+	if viper.IsSet("environment") {
+		if env := viper.GetString("environment"); env != "" {
+			api.CurrentEnvironment = env
+		}
+	}
+
 	shell := ishell.New()
 
-	api.SetToken(viper.GetString("token"))
-	api.SetServer(viper.GetString("server"))
-
-	api.CurrentProject = viper.GetString("project")
-	api.CurrentEnvironment = viper.GetString("environment")
-
-	shell.SetPrompt(api.CurrentProject + "/" + api.CurrentEnvironment + "> ")
+	prompt := fmt.Sprintf("%s/%s> ", api.CurrentProject, api.CurrentEnvironment)
+	if config != "" {
+		prompt = fmt.Sprintf(`[%s] %s`, config, prompt)
+	}
+	shell.SetPrompt(prompt)
 
 	shell.AddCmd(&ishell.Cmd{
 		Name:    "pwd",
 		Aliases: []string{"status", "current"},
 		Help:    "show current context (api key, project, environment)",
-		Func: func(c *ishell.Context) {
-			c.Println("Current Server: " + api.CurrentServer)
-			printCurrentToken(c)
-			c.Println("Current Project: " + api.CurrentProject)
-			c.Println("Current Environment: " + api.CurrentEnvironment)
-		},
+		Func:    printCurrentSettings,
 	})
 
 	shell.AddCmd(&ishell.Cmd{
@@ -164,6 +222,14 @@ func RootCmd(cmd *cobra.Command, args []string) {
 		},
 	})
 
+	shell.AddCmd(&ishell.Cmd{
+		Name:      "config",
+		Aliases:   []string{"c"},
+		Help:      "Change configuration",
+		Completer: configCompleter,
+		Func:      selectConfig,
+	})
+
 	AddFlagCommands(shell)
 	AddProjectCommands(shell)
 	AddEnvironmentCommands(shell)
@@ -204,6 +270,14 @@ func AddTokenCommand(shell *ishell.Shell) {
 
 func printCurrentToken(c *ishell.Context) {
 	c.Printf("Current API Key: ends in '%s'\n", last4(api.CurrentToken))
+}
+
+func printCurrentSettings(c *ishell.Context) {
+	c.Println("Current Config: " + currentConfig)
+	c.Println("Current Server: " + api.CurrentServer)
+	printCurrentToken(c)
+	c.Println("Current Project: " + api.CurrentProject)
+	c.Println("Current Environment: " + api.CurrentEnvironment)
 }
 
 func last4(s string) string {
