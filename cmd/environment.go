@@ -16,13 +16,13 @@ func AddEnvironmentCommands(shell *ishell.Shell) {
 	root := &ishell.Cmd{
 		Name:    "environments",
 		Aliases: []string{"environment", "env", "envs", "e"},
-		Help:    "list and operate on environments",
+		Help:    "showFlags and operate on environments",
 		Func:    listEnvironmentsTable,
 	}
 	root.AddCmd(&ishell.Cmd{
-		Name:    "list",
+		Name:    "showFlags",
 		Aliases: []string{"ls", "l"},
-		Help:    "list environments",
+		Help:    "showFlags environments",
 		Func:    listEnvironmentsTable,
 	})
 	root.AddCmd(&ishell.Cmd{

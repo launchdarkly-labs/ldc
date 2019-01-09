@@ -4,32 +4,30 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"strings"
 	"time"
 
 	ldapi "github.com/launchdarkly/api-client-go"
 	"github.com/launchdarkly/ldc/api"
 
 	"github.com/abiosoft/ishell"
-	"github.com/mattbaird/jsonpatch"
 	"github.com/olekukonko/tablewriter"
 )
+
+var flagCompleter = makeCompleter(listFlagKeys)
 
 func AddFlagCommands(shell *ishell.Shell) {
 
 	root := &ishell.Cmd{
 		Name:    "flags",
 		Aliases: []string{"flag"},
-		Help:    "list and operate on flags",
-		Func:    list,
+		Help:    "showFlags and operate on flags",
+		Func:    showFlags,
 	}
 	root.AddCmd(&ishell.Cmd{
 		Name:      "list",
 		Help:      "list flags",
 		Completer: flagCompleter,
-		Func:      list,
+		Func:      showFlags,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:    "create",
@@ -113,18 +111,6 @@ func AddFlagCommands(shell *ishell.Shell) {
 	shell.AddCmd(root)
 }
 
-func flagCompleter(args []string) []string {
-	var completions []string
-	// TODO caching?
-	for _, key := range listFlagKeys() {
-		// fuzzy?
-		if len(args) == 0 || strings.HasPrefix(key, args[0]) {
-			completions = append(completions, key)
-		}
-	}
-	return completions
-}
-
 func getFlagArg(c *ishell.Context) *ldapi.FeatureFlag {
 	flags := listFlags()
 	var foundFlag *ldapi.FeatureFlag
@@ -173,7 +159,7 @@ func listFlagKeys() []string {
 	return keys
 }
 
-func list(c *ishell.Context) {
+func showFlags(c *ishell.Context) {
 	if len(c.Args) > 0 {
 		flag := getFlagArg(c)
 		c.Printf("Key: %s\n", flag.Key)
@@ -252,47 +238,9 @@ func createToggleFlag(c *ishell.Context) {
 func editFlag(c *ishell.Context) {
 	// wow lol
 	flag := getFlagArg(c)
-	jsonbytes, _ := json.MarshalIndent(flag, "", "    ")
-	file, _ := ioutil.TempFile("/tmp", "ldc")
-	name := file.Name()
-	file.Write(jsonbytes)
-	file.Close()
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "vi"
-	}
-	// TODO why doesn't $EDITOR work? $PATH?
-	proc, err := os.StartProcess("/usr/local/bin/nvim", []string{"nvim", name}, &os.ProcAttr{Files: []*os.File{os.Stdin, os.Stdout, os.Stderr}})
-	proc.Wait()
-	if err != nil {
-		panic(err)
-	}
-	file, _ = os.Open(name)
-	newBytes, _ := ioutil.ReadAll(file)
-	file.Close()
-	err = os.Remove(name)
-	if err != nil {
-		panic(err)
-	}
-	patch, err := jsonpatch.CreatePatch(jsonbytes, newBytes)
-	if err != nil {
-		c.Println("you broke it (could not create json patch)")
-		return
-	}
-	var patchComment ldapi.PatchComment
-	if len(patch) == 0 {
-		c.Println("Flag unchanged")
-		return
-	}
-	for _, op := range patch {
-		patchComment.Patch = append(patchComment.Patch, ldapi.PatchOperation{
-			Op:    op.Operation,
-			Path:  op.Path,
-			Value: &op.Value,
-		})
-	}
-	patchComment.Comment = "Hey, this is a comment!"
-	_, _, err = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	data, _ := json.MarshalIndent(flag, "", "    ")
+	patchComment, err := editFile(c, data)
+	_, _, err = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, *patchComment)
 	if err != nil {
 		// well duh
 		c.Err(err)

@@ -25,12 +25,20 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	return resp, err
 }
 
-func init() {
+var HttpClient *http.Client
+
+var UserAgent string
+
+func Initialize(userAgent string) {
+	UserAgent = userAgent
+
+	HttpClient = &http.Client{
+		Transport: &LoggingTransport{},
+	}
+
 	Client = ldapi.NewAPIClient(&ldapi.Configuration{
-		HTTPClient: &http.Client{
-			Transport: &LoggingTransport{},
-		},
-		UserAgent: "ldc/0.0.1/go",
+		HTTPClient: HttpClient,
+		UserAgent:  UserAgent,
 	})
 }
 

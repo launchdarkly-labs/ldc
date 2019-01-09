@@ -76,6 +76,7 @@ func initConfig() {
 }
 
 func init() {
+	api.Initialize("ldc/" + Version)
 	cobra.OnInitialize(initConfig)
 
 	pflag.String("token", "", "api key (e.g. api-...)")
@@ -235,6 +236,7 @@ func RootCmd(cmd *cobra.Command, args []string) {
 	AddEnvironmentCommands(shell)
 	AddAuditLogCommands(shell)
 	AddTokenCommand(shell)
+	AddGoalsCommands(shell)
 
 	if flag.NArg() > 0 {
 		shell.Process(flag.Args()...)

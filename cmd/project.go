@@ -16,12 +16,12 @@ func AddProjectCommands(shell *ishell.Shell) {
 	root := &ishell.Cmd{
 		Name:    "projects",
 		Aliases: []string{"project"},
-		Help:    "list and operate on projects",
+		Help:    "showFlags and operate on projects",
 		Func:    listProjectsTable,
 	}
 	root.AddCmd(&ishell.Cmd{
-		Name: "list",
-		Help: "list projects",
+		Name: "showFlags",
+		Help: "showFlags projects",
 		Func: listProjectsTable,
 	})
 	root.AddCmd(&ishell.Cmd{
