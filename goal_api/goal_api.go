@@ -21,6 +21,37 @@ const (
 
 var AvailableKinds = []string{Click, Custom, PageView}
 
+type UrlMatcherBase struct {
+	Kind string `json:"kind"`
+}
+
+type UrlMatcherCanonical struct {
+	UrlMatcherBase `json:",inline"`
+	Url            string `json:"url"`
+}
+
+type UrlMatcherExact struct {
+	UrlMatcherBase `json:",inline"`
+	Url            string `json:"url"`
+}
+
+type UrlMatcherSubstring struct {
+	UrlMatcherBase `json:",inline"`
+	Substring      string `json:"substring"`
+}
+
+type UrlMatcherRegex struct {
+	UrlMatcherBase `json:",inline"`
+	Pattern        string `json:"pattern"`
+}
+
+type GoalUrlMatchers struct {
+	ExactUrls     []UrlMatcherExact     `json:"exactUrls,omitempty"`
+	CanonicalUrls []UrlMatcherCanonical `json:"canonicalUrls,omitempty"`
+	RegexUrls     []UrlMatcherRegex     `json:"regexUrls,omitempty"`
+	SubstringUrls []UrlMatcherSubstring `json:"substringUrls,omitempty"`
+}
+
 // Manually declare the goal type since it isn't part of the v2 api
 type Goal struct {
 	// Id of the goal
@@ -35,22 +66,31 @@ type Goal struct {
 	// Whether the goal is custom, pageView or click
 	Kind string `json:"kind,omitempty"`
 
+	// Key for custom goals
+	Key *string `json:"key,omitempty"`
+
 	// Whether the goal is being tracked by a flag
 	IsActive bool `json:"isActive,omitempty"`
 
 	// A unix epoch time in milliseconds specifying the last modification time of this goal.
 	LastModified float32 `json:"lastModified,omitempty"`
 
-	AttachedFeatureCount int `json:"_attachedFeatureCount"`
-	AttachedFeatures     []struct {
+	AttachedFeatureCount int `json:"_attachedFeatureCount,omitempty"`
+
+	Urls []GoalUrlMatchers `json:"urls,omitempty"`
+
+	// This is on the individual goal view
+	AttachedFeatures []struct {
 		Key  string `json:"key"`
 		Name string `json:"name"`
 		On   bool   `json:"on"`
 	} `json:"_attachedFeatures,omitempty"`
 
-	IsDeleteable bool   `json:"_isDeleteable,omitempty"`
-	Source       string `json:"_source,omitempty"`
-	Version      int    `json:"_version,omitempty"`
+	IsDeleteable bool `json:"_isDeleteable,omitempty"`
+	Source       *struct {
+		Name string `json:"name"`
+	} `json:"_source,omitempty"`
+	Version int `json:"_version,omitempty"`
 }
 
 func GetGoal(key string) (*Goal, error) {
@@ -110,21 +150,27 @@ func GetGoals() ([]Goal, error) {
 		return nil, fmt.Errorf("unexpected response: %s", resp.Status)
 	}
 
-	var goals []Goal
-	if err := json.Unmarshal(body, &goals); err != nil {
-		return nil, err
+	var respData struct {
+		Items []Goal
 	}
-	return goals, nil
+
+	if err := json.Unmarshal(body, &respData); err != nil {
+		return nil, fmt.Errorf("Unable to unmarshal: %s: %s", body, err)
+	}
+
+	return respData.Items, nil
 }
 
 func CreateGoal(goal Goal) (*Goal, error) {
 	body, _ := json.Marshal(goal)
 	req, _ := http.NewRequest(http.MethodPost, makeURL("/api/goals"), bytes.NewBuffer(body))
+	fmt.Printf("body: %s\n", body)
 	sdkKey, err := getCurrentSdkKey()
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Add("Authorization", sdkKey)
+	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := api.HttpClient.Do(req)
 	if err != nil {
@@ -161,7 +207,7 @@ func DeleteGoal(id string) error {
 		return err
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("unexpected response: %s", resp.Status)
 	}
 

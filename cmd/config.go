@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/abiosoft/ishell"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -77,6 +77,6 @@ func setConfig(name string, config Config) {
 	currentConfig = name
 	api.CurrentProject = config.DefaultProject
 	api.CurrentEnvironment = config.DefaultEnvironment
-	api.CurrentServer = config.Server
-	api.CurrentToken = config.ApiToken
+	api.SetToken(config.ApiToken)
+	api.SetServer(config.Server)
 }

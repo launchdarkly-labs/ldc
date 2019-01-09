@@ -4,15 +4,18 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
+	"strconv"
+
+	"github.com/launchdarkly/api-client-go"
+	"github.com/launchdarkly/ldc/api"
 
 	"github.com/launchdarkly/ldc/goal_api"
 
-	"github.com/abiosoft/ishell"
 	"github.com/olekukonko/tablewriter"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 )
 
-var goalCompleter = makeCompleter(listGoalKeys)
+var goalCompleter = makeCompleter(emptyOnError(listGoalNames))
 
 func AddGoalsCommands(shell *ishell.Shell) {
 
@@ -25,27 +28,42 @@ func AddGoalsCommands(shell *ishell.Shell) {
 	root.AddCmd(&ishell.Cmd{
 		Name:      "list",
 		Help:      "list goals",
+		Aliases:   []string{"ls", "l"},
+		Completer: goalCompleter,
+		Func:      showGoals,
+	})
+	create := &ishell.Cmd{
+		Name:    "create",
+		Aliases: []string{"new"},
+		Help:    "Create new goal",
+	}
+	create.AddCmd(&ishell.Cmd{
+		Name: "custom",
+		Help: "Create new custom goal",
+		Func: createCustomGoal,
+	})
+	root.AddCmd(create)
+
+	root.AddCmd(&ishell.Cmd{
+		Name:      "show",
+		Help:      "show a goal's details",
 		Completer: goalCompleter,
 		Func:      showGoals,
 	})
 	root.AddCmd(&ishell.Cmd{
-		Name:    "create",
-		Aliases: []string{"new"},
-		Help:    "Create new goal",
-		Func:    createGoal,
+		Name:      "attach",
+		Help:      "attach to flag",
+		Completer: goalCompleter,
+		//Completer: attachGoalCompleter, // TODO: figure out how to do context-dependent completion
+		Func: attachGoal,
 	})
-	//root.AddCmd(&ishell.Cmd{
-	//	Name:      "attach",
-	//	Help:      "attach to flag",
-	//	Completer: attachGoalCompleter,
-	//	Func:      attachGoal,
-	//})
-	//root.AddCmd(&ishell.Cmd{
-	//	Name:      "detach",
-	//	Help:      "detach from flag",
-	//	Completer: detachGoalCompleter,
-	//	Func:      detachGoal,
-	//})
+	root.AddCmd(&ishell.Cmd{
+		Name:      "detach",
+		Help:      "detach from flag",
+		Completer: goalCompleter,
+		//Completer: detachGoalCompleter, // TODO: figure out how to do context-dependent completion
+		Func: detachGoal,
+	})
 	root.AddCmd(&ishell.Cmd{
 		Name:      "edit",
 		Help:      "edit a goal's json in a text editor",
@@ -65,64 +83,108 @@ func AddGoalsCommands(shell *ishell.Shell) {
 
 func getGoalArg(c *ishell.Context) *goal_api.Goal {
 	goals, _ := goal_api.GetGoals()
-	var foundGoal *goal_api.Goal
-	var goalKey string
 	if len(c.Args) > 0 {
-		goalKey = c.Args[0]
+		goalKey := c.Args[0]
 		for _, g := range goals {
-			if g.Name == goalKey {
-				return &g
+			if g.Id == goalKey || g.Name == goalKey {
+				foundGoal, err := goal_api.GetGoal(g.Id)
+				if err != nil {
+					c.Err(err)
+					return nil
+				}
+				return foundGoal
 			}
 		}
-	} else {
-		options := listGoalKeys()
-		choice := c.MultiChoice(options, "Choose a goal")
-		foundGoal, _ = goal_api.GetGoal(options[choice])
 	}
+
+	options, err := listGoalNames()
+	if err != nil {
+		c.Err(err)
+		return nil
+	}
+	choice := c.MultiChoice(options, "Choose a goal: ")
+	foundGoal, _ := goal_api.GetGoal(options[choice])
 	return foundGoal
 }
 
-func listGoalKeys() []string {
+func listGoalNames() ([]string, error) {
 	var keys []string
-	g, _ := goal_api.GetGoals()
+	g, err := goal_api.GetGoals()
+	if err != nil {
+		return nil, err
+	}
 	for _, g := range g {
 		keys = append(keys, g.Name)
 	}
-	return keys
+	return keys, nil
 }
 
 func showGoals(c *ishell.Context) {
 	if len(c.Args) > 0 {
 		goal := getGoalArg(c)
-		c.Printf("Name: %s\n", goal.Name)
-		c.Printf("Description: %s\n", goal.Description)
-		c.Printf("Kind: %s\n", goal.Kind)
-		if goal.AttachedFeatureCount > 0 {
-			c.Println("Attached Flags:")
-			for _, f := range goal.AttachedFeatures {
-				c.Printf("    %s[%s] (%s)\n", f.Key, f.Name, boolToCheck(f.On))
-			}
+		if goal == nil {
+			c.Println("Unknown goal")
+			return
 		}
+		renderGoal(c, goal)
+		return
+	}
+
+	goals, err := goal_api.GetGoals()
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	buf := bytes.Buffer{}
+	table := tablewriter.NewWriter(&buf)
+	table.SetHeader([]string{"Name", "Id", "Description", "Kind", "Attached Flags"})
+	for _, goal := range goals {
+		table.Append([]string{goal.Name, goal.Id, goal.Description, goal.Kind, strconv.Itoa(goal.AttachedFeatureCount)})
+	}
+	table.SetRowLine(true)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAutoWrapText(false)
+	table.Render()
+	if buf.Len() > 1000 {
+		c.ShowPaged(buf.String())
 	} else {
-		goals, _ := goal_api.GetGoals()
-		buf := bytes.Buffer{}
-		table := tablewriter.NewWriter(&buf)
-		table.SetHeader([]string{"Name", "Description", "Kind", "Attached Flags"})
-		for _, goal := range goals {
-			var attached []string
-			for _, f := range goal.AttachedFeatures {
-				attached = append(attached, fmt.Sprintf("%s(%s)", f.Key, boolToCheck(f.On)))
-			}
-			attachedStr := strings.Join(attached, " ")
-			table.Append([]string{goal.Name, goal.Description, goal.Kind, attachedStr})
+		c.Print(buf.String())
+	}
+}
+
+func renderGoal(c *ishell.Context, goal *goal_api.Goal) {
+	if renderJson(c) {
+		data, err := json.MarshalIndent(goal, "", " ")
+		if err != nil {
+			c.Err(err)
+			return
 		}
-		table.SetRowLine(true)
+		c.Println(string(data))
+		return
+	}
+
+	buf := bytes.NewBufferString("")
+	table := tablewriter.NewWriter(buf)
+	table.SetHeader([]string{"Field", "Value"})
+	table.Append([]string{"Name", goal.Name})
+	table.Append([]string{"Description", goal.Description})
+	table.Append([]string{"Kind", goal.Kind})
+	table.Append([]string{"Attached Flags", strconv.Itoa(goal.AttachedFeatureCount)})
+	table.SetRowLine(true)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.Render()
+	c.Print(buf.String())
+	if goal.AttachedFeatureCount > 0 {
+		c.Println()
+		c.Println("Attached Flags:")
+		buf := bytes.NewBufferString("")
+		table := tablewriter.NewWriter(buf)
+		for _, f := range goal.AttachedFeatures {
+			table.SetHeader([]string{"Key", "Name", "On"})
+			table.Append([]string{f.Key, f.Name, boolToCheck(f.On)})
+		}
 		table.Render()
-		if buf.Len() > 1000 {
-			c.ShowPaged(buf.String())
-		} else {
-			c.Print(buf.String())
-		}
+		c.Print(buf.String())
 	}
 }
 
@@ -144,21 +206,22 @@ func editGoal(c *ishell.Context) {
 	}
 }
 
-func createGoal(c *ishell.Context) {
+func createCustomGoal(c *ishell.Context) {
 	var name string
-	var kind string
+	var key string
 	if len(c.Args) > 1 {
 		name = c.Args[0]
-		kind = c.Args[1]
+		key = c.Args[1]
 	} else {
 		c.Print("Name: ")
 		name = c.ReadLine()
-		choice := c.MultiChoice(goal_api.AvailableKinds, "Kind: ")
-		kind = goal_api.AvailableKinds[choice]
+		c.Print("Key: ")
+		key = c.ReadLine()
 	}
 	goal := goal_api.Goal{
 		Name: name,
-		Kind: kind,
+		Kind: "custom",
+		Key:  &key,
 	}
 	_, err := goal_api.CreateGoal(goal)
 	if err != nil {
@@ -186,3 +249,96 @@ func boolToCheck(b bool) string {
 		return " "
 	}
 }
+
+func attachGoal(c *ishell.Context) {
+	var goal *goal_api.Goal
+	var flag *ldapi.FeatureFlag
+	goal = getGoalArg(c)
+	flag = getFlagArg(c, 1)
+
+	for _, g := range flag.GoalIds {
+		if g == goal.Id {
+			c.Println("Goal already attached")
+			return
+		}
+	}
+
+	patchComment := ldapi.PatchComment{
+		Patch: []ldapi.PatchOperation{{Op: "add", Path: "/goalIds/-", Value: interfacePtr(goal.Id)}},
+	}
+	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+}
+
+func detachGoal(c *ishell.Context) {
+	var goal *goal_api.Goal
+	var flag *ldapi.FeatureFlag
+	goal = getGoalArg(c)
+	flag = getFlagArg(c, 1)
+
+	var pos *int
+	for p, g := range flag.GoalIds {
+		if g == goal.Id {
+			pos = &p
+			break
+		}
+	}
+
+	if pos == nil {
+		c.Println("Goal is not currently attached")
+		return
+	}
+
+	patchComment := ldapi.PatchComment{
+		Patch: []ldapi.PatchOperation{{Op: "remove", Path: fmt.Sprintf("/goalIds/%d", *pos)}},
+	}
+	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+}
+
+// TODO: enable these when we can do context specific completion
+//
+//func attachGoalCompleter(args []string) []string {
+//	fmt.Printf("attach completer: %+v\n", args)
+//	if len(args) <= 1 {
+//		return goalCompleter(args)
+//	}
+//
+//	if len(args) > 2 {
+//		return nil
+//	}
+//
+//	return flagCompleter(args[1:])
+//}
+//
+//func detachGoalCompleter(args []string) (completions []string) {
+//	if len(args) <= 1 {
+//		return goalCompleter(args)
+//	}
+//
+//	if len(args) > 2 {
+//		return nil
+//	}
+//
+//	goals, _ := goal_api.GetGoals()
+//	goalKey := args[0]
+//	for _, g := range goals {
+//		if g.Id == goalKey || g.Name == goalKey {
+//			goal, err := goal_api.GetGoal(g.Id)
+//			if err != nil {
+//				return nil
+//			}
+//			for _, f := range goal.AttachedFeatures {
+//				completions = append(completions, f.Key)
+//			}
+//		}
+//	}
+//
+//	return nil
+//}

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/abiosoft/ishell"
 	"github.com/olekukonko/tablewriter"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -26,7 +26,8 @@ func AddAuditLogCommands(shell *ishell.Shell) {
 			}
 			entries, _, err := api.Client.AuditLogApi.GetAuditLogEntries(api.Auth, options)
 			if err != nil {
-				panic(err)
+				c.Err(err)
+				return
 			}
 			buf := bytes.Buffer{}
 			table := tablewriter.NewWriter(&buf)

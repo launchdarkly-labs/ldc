@@ -3,17 +3,23 @@ package cmd
 import (
 	"io/ioutil"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/mattbaird/jsonpatch"
 
-	ldapi "github.com/launchdarkly/api-client-go"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
-	"github.com/abiosoft/ishell"
+	ldapi "github.com/launchdarkly/api-client-go"
+)
+
+const (
+	INTERACTIVE = "interactive"
+	JSON        = "json"
 )
 
 func confirmDelete(c *ishell.Context, name string, expectedValue string) bool {
-	if !interactive {
+	if !isInteractive(c) {
 		return false
 	}
 	c.Printf("Re-enter the %s '%s' to delete: ", name, expectedValue)
@@ -39,10 +45,15 @@ func toPrefix(args []string) string {
 }
 
 func makeCompleter(fetch func() []string) func(args []string) []string {
-	return func(args []string) []string {
-		var completions []string
+	return func(args []string) (completions []string) {
+		if len(args) > 1 {
+			return nil
+		}
 		for _, key := range fetch() {
 			if len(args) == 0 || strings.HasPrefix(key, args[0]) {
+				if strings.Contains(key, " ") {
+					key = `"` + key + `"`
+				}
 				completions = append(completions, key)
 			}
 		}
@@ -85,20 +96,23 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 		if fileErr != nil {
 			c.Err(fileErr)
 			c.Println("Unable to read file: %s", err)
-			c.Print("Try again (y/n)?")
-			c.ReadLineWithDefault("y")
-			continue
+			c.Print("Try again ([y]/n)? ")
+			if yesOrNo(c) {
+				continue
+			}
 		}
 		file.Close()
 
 		patch, err := jsonpatch.CreatePatch(original, newData)
 		if err != nil {
 			c.Err(err)
-			c.Println("Unable to parse json. Try again? (y/n) ")
-			c.Print("Try again (y/n)")
-			c.ReadLineWithDefault("y")
-			current = newData
-			continue
+			c.Print("Unable to parse json. Try again ([y]/n)? ")
+			if yesOrNo(c) {
+				current = newData
+				continue
+			}
+			c.Println("Edit aborted")
+			patch = nil
 		}
 
 		if len(patch) == 0 {
@@ -115,8 +129,8 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 			})
 		}
 
-		c.Print("Unable to parse json.  Make changes? (y/n) ")
-		if strings.ToLower(c.ReadLineWithDefault("y")) == "y" {
+		c.Print("Unable to parse json.  Make changes ([y]/n)? ")
+		if yesOrNo(c) {
 			continue
 		}
 
@@ -124,4 +138,39 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 		patchComment.Comment = c.ReadLine()
 		return &patchComment, nil
 	}
+}
+
+func emptyOnError(f func() ([]string, error)) func() []string {
+	return func() []string {
+		values, err := f()
+		if err != nil {
+			return nil
+		}
+		return values
+	}
+}
+
+func yesOrNo(c *ishell.Context) (yes bool) {
+	val := c.ReadLine()
+	if val == "" || strings.ToLower(val) == "y" {
+		return true
+	}
+	return false
+}
+
+var jsonMode *bool
+
+func setJson(val bool) {
+	jsonMode = &val
+}
+
+func renderJson(c *ishell.Context) bool {
+	if jsonMode != nil {
+		return *jsonMode
+	}
+	return reflect.DeepEqual(c.Get(JSON), true)
+}
+
+func isInteractive(c *ishell.Context) bool {
+	return reflect.DeepEqual(c.Get(INTERACTIVE), true)
 }

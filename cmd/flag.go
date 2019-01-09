@@ -9,23 +9,24 @@ import (
 	ldapi "github.com/launchdarkly/api-client-go"
 	"github.com/launchdarkly/ldc/api"
 
-	"github.com/abiosoft/ishell"
 	"github.com/olekukonko/tablewriter"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 )
 
-var flagCompleter = makeCompleter(listFlagKeys)
+var flagCompleter = makeCompleter(emptyOnError(listFlagKeys))
 
 func AddFlagCommands(shell *ishell.Shell) {
 
 	root := &ishell.Cmd{
 		Name:    "flags",
 		Aliases: []string{"flag"},
-		Help:    "showFlags and operate on flags",
+		Help:    "list and operate on flags",
 		Func:    showFlags,
 	}
 	root.AddCmd(&ishell.Cmd{
 		Name:      "list",
 		Help:      "list flags",
+		Aliases:   []string{"ls", "l", "show"},
 		Completer: flagCompleter,
 		Func:      showFlags,
 	})
@@ -86,14 +87,16 @@ func AddFlagCommands(shell *ishell.Shell) {
 			if len(c.Args) > 0 {
 				status, _, err := api.Client.FeatureFlagsApi.GetFeatureFlagStatus(api.Auth, api.CurrentProject, api.CurrentEnvironment, c.Args[0])
 				if err != nil {
-					panic(err)
+					c.Err(err)
+					return
 				}
 				c.Println("Status: " + status.Name)
 				c.Printf("Last Requested: %v\n", status.LastRequested)
 			} else {
 				statuses, _, err := api.Client.FeatureFlagsApi.GetFeatureFlagStatuses(api.Auth, api.CurrentProject, api.CurrentEnvironment)
 				if err != nil {
-					panic(err)
+					c.Err(err)
+					return
 				}
 				buf := bytes.Buffer{}
 				table := tablewriter.NewWriter(&buf)
@@ -111,12 +114,16 @@ func AddFlagCommands(shell *ishell.Shell) {
 	shell.AddCmd(root)
 }
 
-func getFlagArg(c *ishell.Context) *ldapi.FeatureFlag {
-	flags := listFlags()
+func getFlagArg(c *ishell.Context, pos int) *ldapi.FeatureFlag {
+	flags, err := listFlags()
+	if err != nil {
+		c.Err(err)
+		return nil
+	}
 	var foundFlag *ldapi.FeatureFlag
 	var flagKey string
-	if len(c.Args) > 0 {
-		flagKey = c.Args[0]
+	if len(c.Args) > pos {
+		flagKey = c.Args[pos]
 		for _, flag := range flags {
 			if flag.Key == flagKey {
 				copy := flag
@@ -125,86 +132,106 @@ func getFlagArg(c *ishell.Context) *ldapi.FeatureFlag {
 		}
 	} else {
 		// TODO LOL
-		options := listFlagKeys()
-		choice := c.MultiChoice(options, "Choose an environment")
+		options, err := listFlagKeys()
+		if err != nil {
+			c.Err(err)
+			return nil
+		}
+		choice := c.MultiChoice(options, "Choose a flag: ")
 		foundFlag = &flags[choice]
 		flagKey = foundFlag.Key
 	}
 	return foundFlag
 }
 
-func getFlag(key string) ldapi.FeatureFlag {
-	// TODO other projects
-	flag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, key, nil)
-	if err != nil {
-		panic(err)
-	}
-	return flag
-}
-
-func listFlags() []ldapi.FeatureFlag {
+func listFlags() ([]ldapi.FeatureFlag, error) {
 	// TODO other projects
 	flags, _, err := api.Client.FeatureFlagsApi.GetFeatureFlags(api.Auth, api.CurrentProject, nil)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return flags.Items
+	return flags.Items, nil
 }
 
-func listFlagKeys() []string {
+func listFlagKeys() ([]string, error) {
 	var keys []string
-	for _, flag := range listFlags() {
+	flags, err := listFlags()
+	if err != nil {
+		return nil, err
+	}
+	for _, flag := range flags {
 		keys = append(keys, flag.Key)
 	}
-	return keys
+	return keys, nil
 }
 
 func showFlags(c *ishell.Context) {
 	if len(c.Args) > 0 {
-		flag := getFlagArg(c)
-		c.Printf("Key: %s\n", flag.Key)
-		c.Printf("Name: %s\n", flag.Name)
-		c.Printf("Tags: %v\n", flag.Tags)
-		c.Printf("Kind: %s\n", flag.Kind)
-
-		if flag.Kind == "multivariate" {
-			c.Println("Variations:")
-			buf := bytes.Buffer{}
-			table := tablewriter.NewWriter(&buf)
-			table.SetHeader([]string{"Name", "Description", "Value"})
-			for _, variation := range flag.Variations {
-				table.Append([]string{variation.Name, variation.Description, fmt.Sprintf("%v", *variation.Value)})
-			}
-			table.SetRowLine(true)
-			table.Render()
-			c.Println(buf.String())
+		flag := getFlagArg(c, 0)
+		if flag == nil {
+			c.Println("Flag not found")
+			return
 		}
+		renderFlag(c, flag)
+		return
+	}
 
+	flags, err := listFlags()
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	buf := bytes.Buffer{}
+	table := tablewriter.NewWriter(&buf)
+	table.SetHeader([]string{"Key", "Name", "Description"})
+	for _, flag := range flags {
+		table.Append([]string{flag.Key, flag.Name, flag.Description})
+	}
+	table.SetRowLine(true)
+	table.Render()
+	if buf.Len() > 1000 {
+		c.ShowPaged(buf.String())
+	} else {
+		c.Print(buf.String())
+	}
+}
+
+func renderFlag(c *ishell.Context, flag *ldapi.FeatureFlag) {
+	if renderJson(c) {
+		data, err := json.MarshalIndent(flag, "", "  ")
+		if err != nil {
+			c.Err(err)
+			return
+		}
+		c.Println(string(data))
+		return
+	}
+
+	c.Printf("Key: %s\n", flag.Key)
+	c.Printf("Name: %s\n", flag.Name)
+	c.Printf("Tags: %v\n", flag.Tags)
+	c.Printf("Kind: %s\n", flag.Kind)
+	if flag.Kind == "multivariate" {
+		c.Println("Variations:")
 		buf := bytes.Buffer{}
 		table := tablewriter.NewWriter(&buf)
-		table.SetHeader([]string{"Environment", "On", "Last Modified"})
-		for envKey, envStatus := range flag.Environments {
-			table.Append([]string{envKey, fmt.Sprintf("%v", envStatus.On), time.Unix(envStatus.LastModified/1000, 0).Format("2006/01/02 15:04")})
+		table.SetHeader([]string{"Name", "Description", "Value"})
+		for _, variation := range flag.Variations {
+			table.Append([]string{variation.Name, variation.Description, fmt.Sprintf("%v", *variation.Value)})
 		}
 		table.SetRowLine(true)
 		table.Render()
 		c.Println(buf.String())
-	} else {
-		flags := listFlags()
-		buf := bytes.Buffer{}
-		table := tablewriter.NewWriter(&buf)
-		table.SetHeader([]string{"Key", "Name", "Description"})
-		for _, flag := range flags {
-			table.Append([]string{flag.Key, flag.Name, flag.Description})
-		}
-		table.SetRowLine(true)
-		table.Render()
-		if buf.Len() > 1000 {
-			c.ShowPaged(buf.String())
-		} else {
-			c.Print(buf.String())
-		}
 	}
+	buf := bytes.Buffer{}
+	table := tablewriter.NewWriter(&buf)
+	table.SetHeader([]string{"Environment", "On", "Last Modified"})
+	for envKey, envStatus := range flag.Environments {
+		table.Append([]string{envKey, fmt.Sprintf("%v", envStatus.On), time.Unix(envStatus.LastModified/1000, 0).Format("2006/01/02 15:04")})
+	}
+	table.SetRowLine(true)
+	table.Render()
+	c.Println(buf.String())
 }
 
 func createToggleFlag(c *ishell.Context) {
@@ -222,7 +249,7 @@ func createToggleFlag(c *ishell.Context) {
 	var t, f interface{}
 	t = true
 	f = false
-	_, err := api.Client.FeatureFlagsApi.PostFeatureFlag(api.Auth, api.CurrentProject, ldapi.FeatureFlagBody{
+	_, _, err := api.Client.FeatureFlagsApi.PostFeatureFlag(api.Auth, api.CurrentProject, ldapi.FeatureFlagBody{
 		Name: name,
 		Key:  key,
 		Variations: []ldapi.Variation{
@@ -231,18 +258,18 @@ func createToggleFlag(c *ishell.Context) {
 		},
 	}, nil)
 	if err != nil {
-		panic(err)
+		c.Err(err)
+		return
 	}
 }
 
 func editFlag(c *ishell.Context) {
 	// wow lol
-	flag := getFlagArg(c)
+	flag := getFlagArg(c, 0)
 	data, _ := json.MarshalIndent(flag, "", "    ")
 	patchComment, err := editFile(c, data)
 	_, _, err = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, *patchComment)
 	if err != nil {
-		// well duh
 		c.Err(err)
 	} else {
 		c.Println("Updated flag")
@@ -250,7 +277,7 @@ func editFlag(c *ishell.Context) {
 }
 
 func addTag(c *ishell.Context) {
-	flag := getFlagArg(c)
+	flag := getFlagArg(c, 0)
 	tag := c.Args[1]
 	var patchComment ldapi.PatchComment
 	patchComment.Patch = []ldapi.PatchOperation{{
@@ -262,7 +289,7 @@ func addTag(c *ishell.Context) {
 }
 
 func removeTag(c *ishell.Context) {
-	flag := getFlagArg(c)
+	flag := getFlagArg(c, 0)
 	tag := c.Args[1]
 	index := -1
 	for i, taga := range flag.Tags {
@@ -282,7 +309,7 @@ func removeTag(c *ishell.Context) {
 }
 
 func on(c *ishell.Context) {
-	flag := getFlagArg(c)
+	flag := getFlagArg(c, 0)
 	var patchComment ldapi.PatchComment
 	patchComment.Patch = []ldapi.PatchOperation{{
 		Op:    "replace",
@@ -293,7 +320,7 @@ func on(c *ishell.Context) {
 }
 
 func off(c *ishell.Context) {
-	flag := getFlagArg(c)
+	flag := getFlagArg(c, 0)
 	var patchComment ldapi.PatchComment
 	patchComment.Patch = []ldapi.PatchOperation{{
 		Op:    "replace",

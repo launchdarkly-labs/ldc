@@ -2,24 +2,22 @@ package cmd
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/abiosoft/ishell"
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )
 
 var currentConfig string
 var cfgFile string
-var interactive bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -46,9 +44,11 @@ type Config struct {
 
 var configFile map[string]Config
 
+var configViper *viper.Viper
+
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	configViper := viper.New()
+	configViper = viper.New()
 	if cfgFile != "" {
 		// Use config file from the flag.
 		configViper.SetConfigFile(cfgFile)
@@ -67,7 +67,6 @@ func initConfig() {
 	}
 
 	if err := configViper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", configViper.ConfigFileUsed())
 		if err := configViper.Unmarshal(&configFile); err != nil {
 			fmt.Fprintf(os.Stderr, "Unable to parse config file: %s", err)
 			os.Exit(1)
@@ -80,10 +79,11 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	pflag.String("token", "", "api key (e.g. api-...)")
-	pflag.String("server", "https://app.launchdarkly.com/api/v2", "alternate server base url")
-	pflag.String("project", "default", "Project key")
-	pflag.String("environment", "default", "Environment key")
+	pflag.String("server", "", "alternate server base url")
+	pflag.String("project", "", "Project key")
+	pflag.String("environment", "", "Environment key")
 	pflag.String("config", "", "Configuration to use")
+	pflag.Bool("json", false, "Return json")
 	pflag.Parse()
 
 	viper.AutomaticEnv()
@@ -145,6 +145,7 @@ func RootCmd(cmd *cobra.Command, args []string) {
 	}
 
 	shell := ishell.New()
+	shell.SetHomeHistoryPath(".ldc_history")
 
 	prompt := fmt.Sprintf("%s/%s> ", api.CurrentProject, api.CurrentEnvironment)
 	if config != "" {
@@ -160,6 +161,12 @@ func RootCmd(cmd *cobra.Command, args []string) {
 	})
 
 	shell.AddCmd(&ishell.Cmd{
+		Name:      "json",
+		Help:      "set json mode",
+		Completer: boolCompleter,
+		Func:      setJsonMode,
+	})
+	shell.AddCmd(&ishell.Cmd{
 		// TODO wanted / syntax but oh well
 		Name:    "switch",
 		Help:    "Switch to a given project and environment: switch project [environment]",
@@ -171,7 +178,8 @@ func RootCmd(cmd *cobra.Command, args []string) {
 				return projectCompleter(args)
 			case 1:
 				// env
-				return environmentCompleterP(args[0], args[1:])
+				completer := makeCompleter(emptyOnError(func() ([]string, error) { return listEnvironmentKeysForProject(args[0]) }))
+				return completer(args[1:])
 			}
 			return []string{}
 		},
@@ -238,12 +246,17 @@ func RootCmd(cmd *cobra.Command, args []string) {
 	AddTokenCommand(shell)
 	AddGoalsCommands(shell)
 
-	if flag.NArg() > 0 {
-		shell.Process(flag.Args()...)
+	isJson := viper.GetBool("json")
+	shell.Set(JSON, isJson)
+	if !isJson {
+		fmt.Printf("Using config file: %s\n", configViper.ConfigFileUsed())
+	}
+
+	if len(args) > 0 {
+		shell.Process(args...)
 	} else {
-		interactive = true
+		shell.Set(INTERACTIVE, true)
 		shell.Printf("LaunchDarkly CLI %s\n", Version)
-		shell.Process("pwd")
 		shell.Run()
 	}
 }
@@ -287,4 +300,37 @@ func last4(s string) string {
 		return s
 	}
 	return s[len(s)-5:]
+}
+
+var boolOptions = []string{"false", "true"}
+var boolCompleter = makeCompleter(func() []string { return boolOptions })
+
+func setJsonMode(c *ishell.Context) {
+	var value string
+	if len(c.Args) == 1 {
+		value = c.Args[0]
+		if !containsString(boolOptions, strings.ToLower(value)) {
+			c.Println(`Value must be "true" or "false"`)
+			return
+		}
+	} else {
+		choice := c.MultiChoice(boolOptions, "Show JSON? ")
+		value = boolOptions[choice]
+	}
+	isJson := strings.ToLower(value) == "true" || strings.ToLower(value) == "t"
+	setJson(isJson)
+	if isJson {
+		c.Println("JSON enabled")
+	} else {
+		c.Println("JSON disabled")
+	}
+}
+
+func containsString(haystack []string, needle string) bool {
+	for _, s := range haystack {
+		if s == needle {
+			return true
+		}
+	}
+	return false
 }

@@ -4,16 +4,16 @@ import (
 	"context"
 	"net/http"
 
-	ldapi "github.com/launchdarkly/api-client-go"
+	"github.com/launchdarkly/api-client-go"
 )
 
 var Auth context.Context
 var Client *ldapi.APIClient
 
 var CurrentToken string
-var CurrentServer string
-var CurrentProject string
-var CurrentEnvironment string
+var CurrentServer = "https://app.launchdarkly.com/api/v2"
+var CurrentProject = "default"
+var CurrentEnvironment = "production"
 
 type LoggingTransport struct{}
 
