@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/launchdarkly/api-client-go"
+	ldapi "github.com/launchdarkly/api-client-go"
 	"github.com/launchdarkly/ldc/api"
 
 	"github.com/launchdarkly/ldc/goal_api"
@@ -201,12 +201,18 @@ func editGoal(c *ishell.Context) {
 		return
 	}
 
+	if patchComment == nil {
+		c.Println("No changes")
+		return
+	}
+
 	_, err = goal_api.PatchGoal(goal.Id, *patchComment)
 	if err != nil {
 		c.Err(err)
-	} else {
-		c.Println("Updated goal")
+		return
 	}
+
+	c.Println("Updated goal")
 }
 
 func createCustomGoal(c *ishell.Context) {

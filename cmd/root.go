@@ -254,6 +254,11 @@ func RootCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	shell.Set(EDITOR, "vi")
+	if editor := os.Getenv("EDITOR"); editor != "" {
+		shell.Set(EDITOR, editor)
+	}
+
 	if len(args) > 0 {
 		shell.Set(INTERACTIVE, false)
 		err := shell.Process(args...)

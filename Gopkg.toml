@@ -26,7 +26,6 @@
 
 [[constraint]]
   name = "github.com/launchdarkly/api-client-go"
-  source = "github.com/launchdarkly/api-client-go-private"
   version = "2.0.13"
 
 [[constraint]]

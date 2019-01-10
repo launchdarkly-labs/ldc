@@ -270,16 +270,29 @@ func createToggleFlag(c *ishell.Context) {
 }
 
 func editFlag(c *ishell.Context) {
-	// wow lol
 	flag := getFlagArg(c, 0)
+	if flag == nil {
+		return
+	}
 	data, _ := json.MarshalIndent(flag, "", "    ")
 	patchComment, err := editFile(c, data)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	if patchComment == nil {
+		c.Println("No changes")
+		return
+	}
+
 	_, _, err = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, *patchComment)
 	if err != nil {
 		c.Err(err)
-	} else {
-		c.Println("Updated flag")
+		return
 	}
+
+	c.Println("Updated flag")
 }
 
 func addTag(c *ishell.Context) {

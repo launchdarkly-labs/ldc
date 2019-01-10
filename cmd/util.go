@@ -1,20 +1,21 @@
 package cmd
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"reflect"
 	"strings"
 
-	"github.com/mattbaird/jsonpatch"
-
-	ishell "gopkg.in/abiosoft/ishell.v2"
-
 	ldapi "github.com/launchdarkly/api-client-go"
+	"github.com/mattbaird/jsonpatch"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 )
 
 const (
 	INTERACTIVE = "interactive"
+	EDITOR      = "editor"
 	JSON        = "json"
 )
 
@@ -62,24 +63,42 @@ func makeCompleter(fetch func() []string) func(args []string) []string {
 }
 
 func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, err error) {
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "vi"
+	editor := c.Get(EDITOR).(string)
+	cmd := exec.Command("command", "-v", editor)
+	editorPathRaw, err := cmd.Output()
+	if err != nil {
+		c.Err(err)
+		return nil, err
 	}
+	editorPath := strings.TrimSpace(string(editorPathRaw))
 
 	current := original
 	for {
-		file, _ := ioutil.TempFile("/tmp", "ldc")
+		file, err := ioutil.TempFile("/tmp", "ldc")
+		if err != nil {
+			c.Err(err)
+			return nil, err
+		}
 		name := file.Name()
-		file.Write(current)
-		file.Close()
+		_, err = file.Write(current)
+		if err != nil {
+			c.Err(err)
+			return nil, err
+		}
+		if err := file.Close(); err != nil {
+			c.Err(err)
+			return nil, err
+		}
 
-		// TODO why doesn't $EDITOR work? $PATH?
-		proc, err := os.StartProcess("/usr/local/bin/nvim", []string{"nvim", name}, &os.ProcAttr{Files: []*os.File{os.Stdin, os.Stdout, os.Stderr}})
+		fmt.Printf("name: %s, editor: %s\n", name, editorPath)
+		proc, err := os.StartProcess(editorPath, []string{editor, name}, &os.ProcAttr{Files: []*os.File{os.Stdin, os.Stdout, os.Stderr}})
 		if err != nil {
 			return nil, err
 		}
-		proc.Wait()
+		if _, err := proc.Wait(); err != nil {
+			c.Err(err)
+			return nil, err
+		}
 
 		file, err = os.Open(name)
 		if err != nil {
@@ -101,7 +120,9 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 				continue
 			}
 		}
-		file.Close()
+		if err := file.Close(); err != nil {
+			return nil, err
+		}
 
 		patch, err := jsonpatch.CreatePatch(original, newData)
 		if err != nil {
@@ -116,7 +137,6 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 		}
 
 		if len(patch) == 0 {
-			c.Println("No changes")
 			return nil, nil
 		}
 
@@ -127,11 +147,6 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 				Path:  op.Path,
 				Value: &op.Value,
 			})
-		}
-
-		c.Print("Unable to parse json.  Make changes ([y]/n)? ")
-		if yesOrNo(c) {
-			continue
 		}
 
 		c.Print("Enter comment: ")
