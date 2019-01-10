@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mitchellh/go-homedir"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"gopkg.in/abiosoft/ishell.v2"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -21,15 +21,27 @@ var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "ldc",
-	Short: "ldc is a command-line api client for LaunchDarkly",
-	Run:   RootCmd,
+	Use:              "ldc",
+	Short:            "ldc is a command-line api client for LaunchDarkly",
+	PersistentPreRun: PreRunCmd,
+	Run:              RootCmd,
+}
+
+// rootCmd represents the base command when called without any subcommands
+var shellCmd = &cobra.Command{
+	Use:   "shell",
+	Short: "start an interactive shell",
+	Run:   ShellCmd,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	cmd := rootCmd
+	if len(os.Args) == 2 && os.Args[1] == "shell" {
+		cmd = shellCmd
+	}
+	if err := cmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
@@ -92,7 +104,7 @@ func init() {
 	viper.BindPFlags(pflag.CommandLine)
 }
 
-func RootCmd(cmd *cobra.Command, args []string) {
+func PreRunCmd(cmd *cobra.Command, args []string) {
 	configs, err := listConfigs()
 	if err != nil {
 		configs = nil
@@ -143,13 +155,37 @@ func RootCmd(cmd *cobra.Command, args []string) {
 			api.CurrentEnvironment = env
 		}
 	}
+}
 
+func AddTokenCommand(shell *ishell.Shell) {
+	root := &ishell.Cmd{
+		Name: "token",
+		Help: "set api key",
+		Func: func(c *ishell.Context) {
+			var token string
+			if len(c.Args) == 1 {
+				token = c.Args[0]
+			}
+			if len(c.Args) > 1 {
+				c.Err(errors.New("Only one argument, the api key, is allowed"))
+				return
+			}
+			c.Print("API Key: ")
+			token = c.ReadPassword()
+			api.SetToken(token)
+			printCurrentToken(c)
+		},
+	}
+	shell.AddCmd(root)
+}
+
+func createShell(interactive bool) *ishell.Shell {
 	shell := ishell.New()
 	shell.SetHomeHistoryPath(".ldc_history")
 
 	prompt := fmt.Sprintf("%s/%s> ", api.CurrentProject, api.CurrentEnvironment)
-	if config != "" {
-		prompt = fmt.Sprintf(`[%s] %s`, config, prompt)
+	if currentConfig != "" {
+		prompt = fmt.Sprintf(`[%s] %s`, currentConfig, prompt)
 	}
 	shell.SetPrompt(prompt)
 
@@ -166,6 +202,7 @@ func RootCmd(cmd *cobra.Command, args []string) {
 		Completer: boolCompleter,
 		Func:      setJsonMode,
 	})
+
 	shell.AddCmd(&ishell.Cmd{
 		// TODO wanted / syntax but oh well
 		Name:    "switch",
@@ -239,6 +276,11 @@ func RootCmd(cmd *cobra.Command, args []string) {
 		Func:      selectConfig,
 	})
 
+	shell.AddCmd(&ishell.Cmd{
+		Name: "shell",
+		Help: "Run shell",
+	})
+
 	AddFlagCommands(shell)
 	AddProjectCommands(shell)
 	AddEnvironmentCommands(shell)
@@ -259,41 +301,29 @@ func RootCmd(cmd *cobra.Command, args []string) {
 		shell.Set(EDITOR, editor)
 	}
 
-	if len(args) > 0 {
-		shell.Set(INTERACTIVE, false)
-		err := shell.Process(args...)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
-			os.Exit(1)
-		}
-	} else {
-		shell.Set(INTERACTIVE, true)
-		shell.Printf("LaunchDarkly CLI %s\n", Version)
-		shell.Process("pwd")
-		shell.Run()
+	shell.Set(INTERACTIVE, interactive)
+	return shell
+}
+
+func RootCmd(cmd *cobra.Command, args []string) {
+	shell := createShell(false)
+	if len(args) == 0 {
+		cmd.Usage()
+		fmt.Print(shell.HelpText())
+		os.Exit(0)
+	}
+	err := shell.Process(args...)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+		os.Exit(1)
 	}
 }
 
-func AddTokenCommand(shell *ishell.Shell) {
-	root := &ishell.Cmd{
-		Name: "token",
-		Help: "set api key",
-		Func: func(c *ishell.Context) {
-			var token string
-			if len(c.Args) == 1 {
-				token = c.Args[0]
-			}
-			if len(c.Args) > 1 {
-				c.Err(errors.New("Only one argument, the api key, is allowed"))
-				return
-			}
-			c.Print("API Key: ")
-			token = c.ReadPassword()
-			api.SetToken(token)
-			printCurrentToken(c)
-		},
-	}
-	shell.AddCmd(root)
+func ShellCmd(cmd *cobra.Command, args []string) {
+	shell := createShell(true)
+	shell.Printf("LaunchDarkly CLI %s\n", Version)
+	shell.Process("pwd")
+	shell.Run()
 }
 
 func printCurrentToken(c *ishell.Context) {
