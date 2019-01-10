@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -72,6 +71,7 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 	}
 	editorPath := strings.TrimSpace(string(editorPathRaw))
 
+	var patchOps []jsonpatch.JsonPatchOperation
 	current := original
 	for {
 		file, err := ioutil.TempFile("/tmp", "ldc")
@@ -90,7 +90,6 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 			return nil, err
 		}
 
-		fmt.Printf("name: %s, editor: %s\n", name, editorPath)
 		proc, err := os.StartProcess(editorPath, []string{editor, name}, &os.ProcAttr{Files: []*os.File{os.Stdin, os.Stdout, os.Stderr}})
 		if err != nil {
 			return nil, err
@@ -113,46 +112,53 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 		}
 
 		if fileErr != nil {
-			c.Err(fileErr)
 			c.Println("Unable to read file: %s", err)
-			c.Print("Try again ([y]/n)? ")
-			if yesOrNo(c) {
-				continue
+			c.Print("Try again? [y]/n  ")
+			if !yesOrNo(c) {
+				c.Println("Edit aborted")
+				break
 			}
 		}
 		if err := file.Close(); err != nil {
 			return nil, err
 		}
 
-		patch, err := jsonpatch.CreatePatch(original, newData)
+		patchOps, err = jsonpatch.CreatePatch(original, newData)
 		if err != nil {
-			c.Err(err)
-			c.Print("Unable to parse json. Try again ([y]/n)? ")
-			if yesOrNo(c) {
-				current = newData
-				continue
+			patchOps = nil
+			if err.Error() == "Invalid JSON Document" {
+				c.Print("Unable to parse json. Make changes? [y]/n ")
+			} else {
+				c.Printf("Unable to create patch: %s\n", err.Error())
+				c.Print("Make changes? [y]/n ")
 			}
-			c.Println("Edit aborted")
-			patch = nil
+			if !yesOrNo(c) {
+				c.Println("Edit aborted")
+				break
+			}
+			current = newData
+			continue
 		}
 
-		if len(patch) == 0 {
-			return nil, nil
-		}
-
-		var patchComment ldapi.PatchComment
-		for _, op := range patch {
-			patchComment.Patch = append(patchComment.Patch, ldapi.PatchOperation{
-				Op:    op.Operation,
-				Path:  op.Path,
-				Value: &op.Value,
-			})
-		}
-
-		c.Print("Enter comment: ")
-		patchComment.Comment = c.ReadLine()
-		return &patchComment, nil
+		break
 	}
+
+	if len(patchOps) == 0 {
+		return nil, nil
+	}
+
+	var patchComment ldapi.PatchComment
+	for _, op := range patchOps {
+		patchComment.Patch = append(patchComment.Patch, ldapi.PatchOperation{
+			Op:    op.Operation,
+			Path:  op.Path,
+			Value: &op.Value,
+		})
+	}
+
+	c.Print("Enter comment: ")
+	patchComment.Comment = c.ReadLine()
+	return &patchComment, nil
 }
 
 func emptyOnError(f func() ([]string, error)) func() []string {
