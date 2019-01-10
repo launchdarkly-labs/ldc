@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/abiosoft/ishell"
 	"github.com/olekukonko/tablewriter"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -36,7 +36,6 @@ func AddAuditLogCommands(shell *ishell.Shell) {
 
 				table.Append([]string{time.Unix(entry.Date/1000, 0).Format("2006/01/02 15:04:05"), entry.Title})
 			}
-			table.SetRowLine(true)
 			table.Render()
 			if buf.Len() > 1000 {
 				c.ShowPaged(buf.String())

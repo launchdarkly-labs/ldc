@@ -4,16 +4,18 @@ import (
 	"context"
 	"net/http"
 
-	ldapi "github.com/launchdarkly/api-client-go"
+	"github.com/launchdarkly/api-client-go"
 )
 
 var Auth context.Context
 var Client *ldapi.APIClient
 
+const DefaultServer = "https://app.launchdarkly.com/api/v2"
+
 var CurrentToken string
 var CurrentServer string
-var CurrentProject string
-var CurrentEnvironment string
+var CurrentProject = "default"
+var CurrentEnvironment = "production"
 
 type LoggingTransport struct{}
 
@@ -25,13 +27,25 @@ func (lt *LoggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	return resp, err
 }
 
-func init() {
+var HttpClient *http.Client
+
+var UserAgent string
+
+func Initialize(userAgent string) {
+	UserAgent = userAgent
+
+	HttpClient = &http.Client{
+		Transport: &LoggingTransport{},
+	}
+
 	Client = ldapi.NewAPIClient(&ldapi.Configuration{
-		HTTPClient: &http.Client{
-			Transport: &LoggingTransport{},
-		},
-		UserAgent: "ldc/0.0.1/go",
+		HTTPClient: HttpClient,
+		UserAgent:  UserAgent,
 	})
+}
+
+func init() {
+	SetServer(DefaultServer)
 }
 
 // TODO

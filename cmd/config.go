@@ -1,7 +1,8 @@
 package cmd
 
 import (
-	"github.com/abiosoft/ishell"
+	"errors"
+	"gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -45,6 +46,9 @@ func getConfigArg(c *ishell.Context) (string, *Config) {
 			return "", nil
 		}
 		choice := c.MultiChoice(options, "Choose a config")
+		if choice < 0 {
+			return "", nil
+		}
 		config := configs[options[choice]]
 		return options[choice], &config
 	}
@@ -58,7 +62,8 @@ func getConfigArg(c *ishell.Context) (string, *Config) {
 		}
 	}
 	if foundConfig == nil {
-		c.Printf("Config %s does not exist\n", configKey)
+		c.Err(errors.New("config does not exist"))
+		return "", nil
 	}
 	return configKey, foundConfig
 }
@@ -77,6 +82,6 @@ func setConfig(name string, config Config) {
 	currentConfig = name
 	api.CurrentProject = config.DefaultProject
 	api.CurrentEnvironment = config.DefaultEnvironment
-	api.CurrentServer = config.Server
-	api.CurrentToken = config.ApiToken
+	api.SetToken(config.ApiToken)
+	api.SetServer(config.Server)
 }

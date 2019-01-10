@@ -2,13 +2,14 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
-	"strings"
+	"fmt"
 
-	"github.com/abiosoft/ishell"
 	"github.com/olekukonko/tablewriter"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
-	"github.com/launchdarkly/api-client-go"
+	ldapi "github.com/launchdarkly/api-client-go"
 	"github.com/launchdarkly/ldc/api"
 )
 
@@ -23,6 +24,12 @@ func AddProjectCommands(shell *ishell.Shell) {
 		Name: "list",
 		Help: "list projects",
 		Func: listProjectsTable,
+	})
+	root.AddCmd(&ishell.Cmd{
+		Name:      "show",
+		Help:      "show project",
+		Completer: projectCompleter,
+		Func:      listProjectsTable,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:    "create",
@@ -86,7 +93,6 @@ func listProjectsTable(c *ishell.Context) {
 	for _, project := range projects {
 		table.Append([]string{project.Key, project.Name})
 	}
-	table.SetRowLine(true)
 	table.Render()
 	if buf.Len() > 1000 {
 		c.ShowPaged(buf.String())
@@ -96,35 +102,27 @@ func listProjectsTable(c *ishell.Context) {
 }
 
 func switchToProject(c *ishell.Context, project *ldapi.Project) {
-	c.Printf("Switching to project %s\n", project.Key)
+	if isInteractive(c) {
+		c.Printf("Switching to project %s\n", project.Key)
+	}
 	api.CurrentProject = project.Key
 
 	if len(project.Environments) == 0 {
-		c.Println("This project has no environments")
+		if isInteractive(c) {
+			c.Println("This project has no environments")
+		}
 		api.CurrentEnvironment = ""
 	} else {
 		environmentKey := project.Environments[0].Key
-		c.Printf("Switching to environment %s\n", environmentKey)
+		if isInteractive(c) {
+			c.Printf("Switching to environment %s\n", environmentKey)
+		}
 		api.CurrentEnvironment = environmentKey
 	}
 	c.SetPrompt(api.CurrentProject + "/" + api.CurrentEnvironment + "> ")
 }
 
-func projectCompleter(args []string) []string {
-	var completions []string
-	// TODO caching?
-	keys, err := listProjectKeys()
-	if err != nil {
-		return nil
-	}
-	for _, key := range keys {
-		// fuzzy?
-		if len(args) == 0 || strings.HasPrefix(key, args[0]) {
-			completions = append(completions, key)
-		}
-	}
-	return completions
-}
+var projectCompleter = makeCompleter(emptyOnError(listProjectKeys))
 
 func getProjectArg(c *ishell.Context) *ldapi.Project {
 	projects, err := listProjects()
@@ -142,7 +140,8 @@ func getProjectArg(c *ishell.Context) *ldapi.Project {
 			}
 		}
 		if foundProject == nil {
-			c.Printf("Project %s does not exist\n", projectKey)
+			c.Err(fmt.Errorf("Project %s does not exist\n", projectKey))
+			return nil
 		}
 	} else {
 		// TODO LOL
@@ -152,6 +151,9 @@ func getProjectArg(c *ishell.Context) *ldapi.Project {
 			return nil
 		}
 		choice := c.MultiChoice(options, "Choose a project")
+		if choice < 0 {
+			return nil
+		}
 		foundProject = &projects[choice]
 	}
 	return foundProject
@@ -173,31 +175,46 @@ func createProject(c *ishell.Context) {
 		c.Err(errors.New("too many arguments.  Expected arguments are: key [name]."))
 		return
 	}
+	// TODO: openapi should be updated to return the new project
 	if _, err := api.Client.ProjectsApi.PostProject(api.Auth, ldapi.ProjectBody{Key: key, Name: name}); err != nil {
 		c.Err(err)
 		return
 	}
-	c.Printf("Created project %s\n", key)
+	if !renderJson(c) {
+		c.Printf("Created project %s\n", key)
+	}
 	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, key)
 	if err != nil {
 		c.Err(err)
 		return
 	}
 	switchToProject(c, &project)
-}
-
-func deleteProject(c *ishell.Context) {
-	project := getProjectArg(c)
-	if project != nil {
-		return
-	}
-	confirmDelete(c, "project key", project.Key)
-	if project != nil {
-		_, err := api.Client.ProjectsApi.DeleteProject(api.Auth, project.Key)
+	if renderJson(c) {
+		data, err := json.MarshalIndent(project, "", "  ")
 		if err != nil {
 			c.Err(err)
 			return
 		}
+		c.Println(string(data))
+		return
+	}
+}
+
+func deleteProject(c *ishell.Context) {
+	project := getProjectArg(c)
+	if project == nil {
+		c.Err(fmt.Errorf("project does not exist"))
+		return
+	}
+	if !confirmDelete(c, "project key", project.Key) {
+		return
+	}
+	_, err := api.Client.ProjectsApi.DeleteProject(api.Auth, project.Key)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	if isInteractive(c) {
 		c.Printf("Deleted project %s\n", project.Key)
 	}
 }
