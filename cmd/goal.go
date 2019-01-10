@@ -103,6 +103,9 @@ func getGoalArg(c *ishell.Context) *goal_api.Goal {
 		return nil
 	}
 	choice := c.MultiChoice(options, "Choose a goal: ")
+	if choice < 0 {
+		return nil
+	}
 	foundGoal, _ := goal_api.GetGoal(options[choice])
 	return foundGoal
 }

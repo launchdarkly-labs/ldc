@@ -20,7 +20,7 @@ const (
 
 func confirmDelete(c *ishell.Context, name string, expectedValue string) bool {
 	if !isInteractive(c) {
-		return false
+		return true
 	}
 	c.Printf("Re-enter the %s '%s' to delete: ", name, expectedValue)
 	value := c.ReadLine()

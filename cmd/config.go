@@ -45,6 +45,9 @@ func getConfigArg(c *ishell.Context) (string, *Config) {
 			return "", nil
 		}
 		choice := c.MultiChoice(options, "Choose a config")
+		if choice < 0 {
+			return "", nil
+		}
 		config := configs[options[choice]]
 		return options[choice], &config
 	}

@@ -3,10 +3,8 @@ package cmd
 import (
 	"bytes"
 	"errors"
-	"strings"
-
 	"github.com/olekukonko/tablewriter"
-	ishell "gopkg.in/abiosoft/ishell.v2"
+	"gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/api-client-go"
 	"github.com/launchdarkly/ldc/api"
@@ -22,6 +20,12 @@ func AddProjectCommands(shell *ishell.Shell) {
 	root.AddCmd(&ishell.Cmd{
 		Name: "list",
 		Help: "list projects",
+		Func: listProjectsTable,
+	})
+	root.AddCmd(&ishell.Cmd{
+		Name: "show",
+		Help: "show project",
+		Completer: projectCompleter,
 		Func: listProjectsTable,
 	})
 	root.AddCmd(&ishell.Cmd{
@@ -110,21 +114,7 @@ func switchToProject(c *ishell.Context, project *ldapi.Project) {
 	c.SetPrompt(api.CurrentProject + "/" + api.CurrentEnvironment + "> ")
 }
 
-func projectCompleter(args []string) []string {
-	var completions []string
-	// TODO caching?
-	keys, err := listProjectKeys()
-	if err != nil {
-		return nil
-	}
-	for _, key := range keys {
-		// fuzzy?
-		if len(args) == 0 || strings.HasPrefix(key, args[0]) {
-			completions = append(completions, key)
-		}
-	}
-	return completions
-}
+var projectCompleter = makeCompleter(emptyOnError(listProjectKeys))
 
 func getProjectArg(c *ishell.Context) *ldapi.Project {
 	projects, err := listProjects()
@@ -152,6 +142,9 @@ func getProjectArg(c *ishell.Context) *ldapi.Project {
 			return nil
 		}
 		choice := c.MultiChoice(options, "Choose a project")
+		if choice < 0 {
+			return nil
+		}
 		foundProject = &projects[choice]
 	}
 	return foundProject
@@ -188,18 +181,18 @@ func createProject(c *ishell.Context) {
 
 func deleteProject(c *ishell.Context) {
 	project := getProjectArg(c)
-	if project != nil {
+	if project == nil {
 		return
 	}
-	confirmDelete(c, "project key", project.Key)
-	if project != nil {
-		_, err := api.Client.ProjectsApi.DeleteProject(api.Auth, project.Key)
-		if err != nil {
-			c.Err(err)
-			return
-		}
-		c.Printf("Deleted project %s\n", project.Key)
+	if !confirmDelete(c, "project key", project.Key) {
+		return
 	}
+	_, err := api.Client.ProjectsApi.DeleteProject(api.Auth, project.Key)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	c.Printf("Deleted project %s\n", project.Key)
 }
 
 func updateProject(c *ishell.Context) {

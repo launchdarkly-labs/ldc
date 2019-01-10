@@ -138,6 +138,9 @@ func getFlagArg(c *ishell.Context, pos int) *ldapi.FeatureFlag {
 			return nil
 		}
 		choice := c.MultiChoice(options, "Choose a flag: ")
+		if choice < 0 {
+			return nil
+		}
 		foundFlag = &flags[choice]
 		flagKey = foundFlag.Key
 	}

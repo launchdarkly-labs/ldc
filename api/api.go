@@ -10,8 +10,10 @@ import (
 var Auth context.Context
 var Client *ldapi.APIClient
 
+const DefaultServer = "https://app.launchdarkly.com/api/v2"
+
 var CurrentToken string
-var CurrentServer = "https://app.launchdarkly.com/api/v2"
+var CurrentServer string
 var CurrentProject = "default"
 var CurrentEnvironment = "production"
 
@@ -40,6 +42,10 @@ func Initialize(userAgent string) {
 		HTTPClient: HttpClient,
 		UserAgent:  UserAgent,
 	})
+}
+
+func init() {
+	SetServer(DefaultServer)
 }
 
 // TODO

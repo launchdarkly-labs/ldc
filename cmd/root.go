@@ -249,7 +249,9 @@ func RootCmd(cmd *cobra.Command, args []string) {
 	isJson := viper.GetBool("json")
 	shell.Set(JSON, isJson)
 	if !isJson {
-		fmt.Printf("Using config file: %s\n", configViper.ConfigFileUsed())
+		if configViper.ConfigFileUsed() != "" {
+			fmt.Printf("Using config file: %s\n", configViper.ConfigFileUsed())
+		}
 	}
 
 	if len(args) > 0 {
@@ -257,6 +259,7 @@ func RootCmd(cmd *cobra.Command, args []string) {
 	} else {
 		shell.Set(INTERACTIVE, true)
 		shell.Printf("LaunchDarkly CLI %s\n", Version)
+		shell.Process("pwd")
 		shell.Run()
 	}
 }
@@ -288,7 +291,7 @@ func printCurrentToken(c *ishell.Context) {
 }
 
 func printCurrentSettings(c *ishell.Context) {
-	c.Println("Current Config: " + currentConfig)
+	c.Println("Current Config: " + noneIfEmpty(currentConfig))
 	c.Println("Current Server: " + api.CurrentServer)
 	printCurrentToken(c)
 	c.Println("Current Project: " + api.CurrentProject)
@@ -315,6 +318,10 @@ func setJsonMode(c *ishell.Context) {
 		}
 	} else {
 		choice := c.MultiChoice(boolOptions, "Show JSON? ")
+		if choice < 0 {
+			c.Println("Value unchanged")
+			return
+		}
 		value = boolOptions[choice]
 	}
 	isJson := strings.ToLower(value) == "true" || strings.ToLower(value) == "t"
@@ -333,4 +340,11 @@ func containsString(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func noneIfEmpty(s string) string {
+	if s == "" {
+		return "<none>"
+	}
+	return s
 }

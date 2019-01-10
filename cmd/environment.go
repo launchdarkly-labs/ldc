@@ -178,6 +178,9 @@ func getEnvironmentArg(c *ishell.Context) *ldapi.Environment {
 			return nil
 		}
 		choice := c.MultiChoice(options, "Choose an environment")
+		if choice < 0 {
+			return nil
+		}
 		foundEnvironment = &environments[choice]
 		environmentKey = foundEnvironment.Key
 	}
@@ -218,12 +221,10 @@ func deleteEnvironment(c *ishell.Context) {
 	if !confirmDelete(c, "environment key", environment.Key) {
 		return
 	}
-	if environment != nil {
-		_, err := api.Client.EnvironmentsApi.DeleteEnvironment(api.Auth, api.CurrentProject, environment.Key)
-		if err != nil {
-			c.Err(err)
-			return
-		}
-		c.Printf("Deleted environment %s\n", environment.Key)
+	_, err := api.Client.EnvironmentsApi.DeleteEnvironment(api.Auth, api.CurrentProject, environment.Key)
+	if err != nil {
+		c.Err(err)
+		return
 	}
+	c.Printf("Deleted environment %s\n", environment.Key)
 }
