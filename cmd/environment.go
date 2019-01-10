@@ -53,11 +53,11 @@ func AddEnvironmentCommands(shell *ishell.Shell) {
 			foundEnvironment := getEnvironmentArg(c)
 			if foundEnvironment == nil {
 				c.Printf("Environment %s does not exist in the current project\n", foundEnvironment.Key)
-			} else {
-				c.Printf("Switching to environment %s\n", foundEnvironment.Key)
-				api.CurrentEnvironment = foundEnvironment.Key
-				c.SetPrompt(api.CurrentProject + "/" + api.CurrentEnvironment + "> ")
+				return
 			}
+			c.Printf("Switching to environment %s\n", foundEnvironment.Key)
+			api.CurrentEnvironment = foundEnvironment.Key
+			c.SetPrompt(api.CurrentProject + "/" + api.CurrentEnvironment + "> ")
 		},
 	})
 
@@ -208,8 +208,10 @@ func createEnvironment(c *ishell.Context) {
 		c.Err(err)
 		return
 	}
-	c.Printf("Created environment %s\n", key)
-	c.Printf("Switching to environment %s\n", key)
+	if isInteractive(c) {
+		c.Printf("Created environment %s\n", key)
+		c.Printf("Switching to environment %s\n", key)
+	}
 	api.CurrentEnvironment = key
 }
 

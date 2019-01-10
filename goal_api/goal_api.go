@@ -164,7 +164,6 @@ func GetGoals() ([]Goal, error) {
 func CreateGoal(goal Goal) (*Goal, error) {
 	body, _ := json.Marshal(goal)
 	req, _ := http.NewRequest(http.MethodPost, makeURL("/api/goals"), bytes.NewBuffer(body))
-	fmt.Printf("body: %s\n", body)
 	sdkKey, err := getCurrentSdkKey()
 	if err != nil {
 		return nil, err

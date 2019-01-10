@@ -255,7 +255,12 @@ func RootCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if len(args) > 0 {
-		shell.Process(args...)
+		shell.Set(INTERACTIVE, false)
+		err := shell.Process(args...)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+			os.Exit(1)
+		}
 	} else {
 		shell.Set(INTERACTIVE, true)
 		shell.Printf("LaunchDarkly CLI %s\n", Version)

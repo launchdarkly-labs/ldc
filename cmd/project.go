@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/olekukonko/tablewriter"
 	"gopkg.in/abiosoft/ishell.v2"
 
@@ -100,15 +102,21 @@ func listProjectsTable(c *ishell.Context) {
 }
 
 func switchToProject(c *ishell.Context, project *ldapi.Project) {
-	c.Printf("Switching to project %s\n", project.Key)
+	if isInteractive(c) {
+		c.Printf("Switching to project %s\n", project.Key)
+	}
 	api.CurrentProject = project.Key
 
 	if len(project.Environments) == 0 {
-		c.Println("This project has no environments")
+		if isInteractive(c) {
+			c.Println("This project has no environments")
+		}
 		api.CurrentEnvironment = ""
 	} else {
 		environmentKey := project.Environments[0].Key
-		c.Printf("Switching to environment %s\n", environmentKey)
+		if isInteractive(c) {
+			c.Printf("Switching to environment %s\n", environmentKey)
+		}
 		api.CurrentEnvironment = environmentKey
 	}
 	c.SetPrompt(api.CurrentProject + "/" + api.CurrentEnvironment + "> ")
@@ -132,7 +140,8 @@ func getProjectArg(c *ishell.Context) *ldapi.Project {
 			}
 		}
 		if foundProject == nil {
-			c.Printf("Project %s does not exist\n", projectKey)
+			c.Err(fmt.Errorf("Project %s does not exist\n", projectKey))
+			return nil
 		}
 	} else {
 		// TODO LOL
@@ -166,22 +175,35 @@ func createProject(c *ishell.Context) {
 		c.Err(errors.New("too many arguments.  Expected arguments are: key [name]."))
 		return
 	}
+	// TODO: openapi should be updated to return the new project
 	if _, err := api.Client.ProjectsApi.PostProject(api.Auth, ldapi.ProjectBody{Key: key, Name: name}); err != nil {
 		c.Err(err)
 		return
 	}
-	c.Printf("Created project %s\n", key)
+	if !renderJson(c) {
+		c.Printf("Created project %s\n", key)
+	}
 	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, key)
 	if err != nil {
 		c.Err(err)
 		return
 	}
 	switchToProject(c, &project)
+	if renderJson(c) {
+		data, err := json.MarshalIndent(project, "", "  ")
+		if err != nil {
+			c.Err(err)
+			return
+		}
+		c.Println(string(data))
+		return
+	}
 }
 
 func deleteProject(c *ishell.Context) {
 	project := getProjectArg(c)
 	if project == nil {
+		c.Err(fmt.Errorf("project does not exist"))
 		return
 	}
 	if !confirmDelete(c, "project key", project.Key) {
@@ -192,7 +214,9 @@ func deleteProject(c *ishell.Context) {
 		c.Err(err)
 		return
 	}
-	c.Printf("Deleted project %s\n", project.Key)
+	if isInteractive(c) {
+		c.Printf("Deleted project %s\n", project.Key)
+	}
 }
 
 func updateProject(c *ishell.Context) {

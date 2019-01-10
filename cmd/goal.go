@@ -226,11 +226,16 @@ func createCustomGoal(c *ishell.Context) {
 		Kind: "custom",
 		Key:  &key,
 	}
-	_, err := goal_api.CreateGoal(goal)
+	newGoal, err := goal_api.CreateGoal(goal)
 	if err != nil {
 		c.Err(err)
-	} else {
+		return
+	}
+	if isInteractive(c) {
 		c.Println("Created goal")
+	}
+	if renderJson(c) {
+		renderGoal(c, newGoal)
 	}
 }
 

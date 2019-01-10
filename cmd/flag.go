@@ -175,7 +175,7 @@ func showFlags(c *ishell.Context) {
 			c.Println("Flag not found")
 			return
 		}
-		renderFlag(c, flag)
+		renderFlag(c, *flag)
 		return
 	}
 
@@ -199,7 +199,7 @@ func showFlags(c *ishell.Context) {
 	}
 }
 
-func renderFlag(c *ishell.Context, flag *ldapi.FeatureFlag) {
+func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
 	if renderJson(c) {
 		data, err := json.MarshalIndent(flag, "", "  ")
 		if err != nil {
@@ -252,7 +252,7 @@ func createToggleFlag(c *ishell.Context) {
 	var t, f interface{}
 	t = true
 	f = false
-	_, _, err := api.Client.FeatureFlagsApi.PostFeatureFlag(api.Auth, api.CurrentProject, ldapi.FeatureFlagBody{
+	flag, _, err := api.Client.FeatureFlagsApi.PostFeatureFlag(api.Auth, api.CurrentProject, ldapi.FeatureFlagBody{
 		Name: name,
 		Key:  key,
 		Variations: []ldapi.Variation{
@@ -263,6 +263,9 @@ func createToggleFlag(c *ishell.Context) {
 	if err != nil {
 		c.Err(err)
 		return
+	}
+	if renderJson(c) {
+		renderFlag(c, flag)
 	}
 }
 

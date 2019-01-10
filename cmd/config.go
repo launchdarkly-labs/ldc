@@ -1,7 +1,8 @@
 package cmd
 
 import (
-	ishell "gopkg.in/abiosoft/ishell.v2"
+	"errors"
+	"gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -61,7 +62,8 @@ func getConfigArg(c *ishell.Context) (string, *Config) {
 		}
 	}
 	if foundConfig == nil {
-		c.Printf("Config %s does not exist\n", configKey)
+		c.Err(errors.New("config does not exist"))
+		return "", nil
 	}
 	return configKey, foundConfig
 }
