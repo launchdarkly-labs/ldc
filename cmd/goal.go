@@ -144,7 +144,6 @@ func showGoals(c *ishell.Context) {
 	for _, goal := range goals {
 		table.Append([]string{goal.Name, goal.Id, goal.Description, goal.Kind, strconv.Itoa(goal.AttachedFeatureCount)})
 	}
-	table.SetRowLine(true)
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(false)
 	table.Render()
@@ -173,7 +172,6 @@ func renderGoal(c *ishell.Context, goal *goal_api.Goal) {
 	table.Append([]string{"Description", goal.Description})
 	table.Append([]string{"Kind", goal.Kind})
 	table.Append([]string{"Attached Flags", strconv.Itoa(goal.AttachedFeatureCount)})
-	table.SetRowLine(true)
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.Render()
 	c.Print(buf.String())

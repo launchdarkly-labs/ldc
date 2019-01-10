@@ -104,7 +104,6 @@ func AddFlagCommands(shell *ishell.Shell) {
 				for _, status := range statuses.Items {
 					table.Append([]string{status.Name, status.LastRequested})
 				}
-				table.SetRowLine(true)
 				table.Render()
 				c.Println(buf.String())
 			}
@@ -190,7 +189,6 @@ func showFlags(c *ishell.Context) {
 	for _, flag := range flags {
 		table.Append([]string{flag.Key, flag.Name, flag.Description})
 	}
-	table.SetRowLine(true)
 	table.Render()
 	if buf.Len() > 1000 {
 		c.ShowPaged(buf.String())
@@ -222,7 +220,6 @@ func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
 		for _, variation := range flag.Variations {
 			table.Append([]string{variation.Name, variation.Description, fmt.Sprintf("%v", *variation.Value)})
 		}
-		table.SetRowLine(true)
 		table.Render()
 		c.Println(buf.String())
 	}
@@ -232,7 +229,6 @@ func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
 	for envKey, envStatus := range flag.Environments {
 		table.Append([]string{envKey, fmt.Sprintf("%v", envStatus.On), time.Unix(envStatus.LastModified/1000, 0).Format("2006/01/02 15:04")})
 	}
-	table.SetRowLine(true)
 	table.Render()
 	c.Println(buf.String())
 }

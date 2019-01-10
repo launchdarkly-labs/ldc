@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/olekukonko/tablewriter"
-	"gopkg.in/abiosoft/ishell.v2"
 
-	"github.com/launchdarkly/api-client-go"
+	"github.com/olekukonko/tablewriter"
+	ishell "gopkg.in/abiosoft/ishell.v2"
+
+	ldapi "github.com/launchdarkly/api-client-go"
 	"github.com/launchdarkly/ldc/api"
 )
 
@@ -25,10 +26,10 @@ func AddProjectCommands(shell *ishell.Shell) {
 		Func: listProjectsTable,
 	})
 	root.AddCmd(&ishell.Cmd{
-		Name: "show",
-		Help: "show project",
+		Name:      "show",
+		Help:      "show project",
 		Completer: projectCompleter,
-		Func: listProjectsTable,
+		Func:      listProjectsTable,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:    "create",
@@ -92,7 +93,6 @@ func listProjectsTable(c *ishell.Context) {
 	for _, project := range projects {
 		table.Append([]string{project.Key, project.Name})
 	}
-	table.SetRowLine(true)
 	table.Render()
 	if buf.Len() > 1000 {
 		c.ShowPaged(buf.String())

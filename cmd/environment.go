@@ -8,7 +8,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	ishell "gopkg.in/abiosoft/ishell.v2"
 
-	"github.com/launchdarkly/api-client-go"
+	ldapi "github.com/launchdarkly/api-client-go"
 	"github.com/launchdarkly/ldc/api"
 )
 
@@ -126,7 +126,6 @@ func showEnvironments(c *ishell.Context) {
 				table.Append([]string{"Color", environment.Color})
 				table.Append([]string{"Secure Mode", fmt.Sprintf("%t", environment.SecureMode)})
 				table.Append([]string{"Default Track Events", fmt.Sprintf("%t", environment.DefaultTrackEvents)})
-				table.SetRowLine(true)
 				table.SetAlignment(tablewriter.ALIGN_LEFT)
 				table.Render()
 				c.Print(buf.String())
