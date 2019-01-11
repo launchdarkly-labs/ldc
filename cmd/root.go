@@ -38,7 +38,10 @@ var shellCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	cmd := rootCmd
-	if len(os.Args) == 2 && os.Args[1] == "shell" {
+	rootCmdWithShell := rootCmd
+	rootCmdWithShell.AddCommand(shellCmd)
+	foundCmd, _, err := rootCmdWithShell.Find(os.Args[1:])
+	if err == nil && foundCmd.Use == "shell" {
 		cmd = shellCmd
 	}
 	if err := cmd.Execute(); err != nil {
@@ -211,6 +214,8 @@ func createShell(interactive bool) *ishell.Shell {
 		Completer: boolCompleter,
 		Func:      setJSONMode,
 	})
+
+	shell.CustomCompleter(customCompleter{shell, nil})
 
 	shell.AddCmd(&ishell.Cmd{
 		// TODO wanted / syntax but oh well

@@ -62,6 +62,16 @@ func makeCompleter(fetch func() []string) func(args []string) []string {
 	}
 }
 
+func nonFinalCompleter(completer func(args []string) []string) func(args []string) []string {
+	return func(args []string) (completions []string) {
+		original := completer(args)
+		for _, s := range original {
+			completions = append(completions, s+" ")
+		}
+		return completions
+	}
+}
+
 func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, err error) {
 	editor := c.Get(cEDITOR).(string)
 	cmd := exec.Command("command", "-v", editor) // nolint:gosec // ok to launch subprocess with variable
