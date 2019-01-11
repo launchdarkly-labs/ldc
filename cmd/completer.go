@@ -3,7 +3,7 @@ package cmd
 import (
 	"strings"
 
-	"gopkg.in/abiosoft/ishell.v2"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/flynn-archive/go-shlex"
 )
