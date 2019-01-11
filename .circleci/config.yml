@@ -71,8 +71,7 @@ jobs:
     working_directory: *working_dir
     steps:
       - checkout
-      - run: make release
-      - run: make integration-test
+      - run: make release-snapshot
       - store_artifacts:
           path: dist/
 
