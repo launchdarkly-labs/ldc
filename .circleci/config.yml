@@ -105,6 +105,8 @@ workflows:
           filters:
             tags:
               only: /\d+\.\d+\.\d+(-.*)?/
+            branches:
+              ignore: /.*/
           requires:
             - go-test
             - test-publish
