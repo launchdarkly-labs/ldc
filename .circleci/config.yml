@@ -93,13 +93,18 @@ workflows:
   version: 2
   test:
     jobs:
-      - go-test
-      - test-publish
+      - go-test:
+          filters:
+            tags:
+              only: /.*/
+      - test-publish:
+          filters:
+            tags:
+              only: /.*/
       - publish:
           filters:
             tags:
               only: /\d+\.\d+\.\d+(-.*)?/
-            branches:
-              only: /v\d+/
           requires:
             - go-test
+            - test-publish
