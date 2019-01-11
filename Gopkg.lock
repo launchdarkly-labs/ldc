@@ -73,8 +73,7 @@
   name = "github.com/launchdarkly/api-client-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4c56df56b8aba0bfe8af655a91b75eb56727a3f3"
-  source = "github.com/launchdarkly/api-client-go-private"
+  revision = "3cb23d7484adf383cd429b1c8b0340f705806230"
   version = "2.0.13"
 
 [[projects]]
@@ -281,6 +280,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/flynn-archive/go-shlex",
     "github.com/launchdarkly/api-client-go",
     "github.com/mattbaird/jsonpatch",
     "github.com/mitchellh/go-homedir",
