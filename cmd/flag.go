@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/olekukonko/tablewriter"
-	"gopkg.in/abiosoft/ishell.v2"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
-	"github.com/launchdarkly/api-client-go"
+	ldapi "github.com/launchdarkly/api-client-go"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -131,16 +131,17 @@ func getFlagArg(c *ishell.Context, pos int) *ldapi.FeatureFlag {
 		return nil
 	}
 
-	// TODO LOL
 	options, err := listFlagKeys()
 	if err != nil {
 		c.Err(err)
 		return nil
 	}
+
 	choice := c.MultiChoice(options, "Choose a flag: ")
 	if choice < 0 {
 		return nil
 	}
+
 	return &flags[choice]
 }
 

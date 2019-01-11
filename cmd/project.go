@@ -10,6 +10,7 @@ import (
 	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	ldapi "github.com/launchdarkly/api-client-go"
+
 	"github.com/launchdarkly/ldc/api"
 )
 
@@ -130,33 +131,29 @@ func getProjectArg(c *ishell.Context) *ldapi.Project {
 		c.Err(err)
 		return nil
 	}
-	var foundProject *ldapi.Project
 	if len(c.Args) > 0 {
 		projectKey := c.Args[0]
 		for _, project := range projects {
 			if project.Key == projectKey {
-				copy := project
-				foundProject = &copy
+				return &project // nolint:scopelint // ok because we return immediately
 			}
 		}
-		if foundProject == nil {
-			c.Err(fmt.Errorf("Project %s does not exist\n", projectKey))
-			return nil
-		}
-	} else {
-		// TODO LOL
-		options, err := listProjectKeys()
-		if err != nil {
-			c.Err(err)
-			return nil
-		}
-		choice := c.MultiChoice(options, "Choose a project")
-		if choice < 0 {
-			return nil
-		}
-		foundProject = &projects[choice]
+		c.Err(fmt.Errorf("Project %s does not exist\n", projectKey))
+		return nil
 	}
-	return foundProject
+
+	options, err := listProjectKeys()
+	if err != nil {
+		c.Err(err)
+		return nil
+	}
+
+	choice := c.MultiChoice(options, "Choose a project")
+	if choice < 0 {
+		return nil
+	}
+
+	return &projects[choice]
 }
 
 func createProject(c *ishell.Context) {

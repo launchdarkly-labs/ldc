@@ -1,4 +1,4 @@
-GOLANGCI_VERSION=v1.12.4
+GOLANGCI_VERSION=v1.12.5
 
 SHELL=/bin/bash
 
@@ -16,10 +16,13 @@ RELEASE_CMD=curl -sL https://git.io/goreleaser | bash -s -- --rm-dist
 publish:
 	$(RELEASE_CMD)
 
+publish-snapshot:
+	$(RELEASE_CMD)
+
 release:
 	$(RELEASE_CMD) --skip-publish --skip-validate
 
-test-release:
+release-snapshot:
 	$(RELEASE_CMD) --skip-publish --skip-validate --snapshot
 
 integration-test:

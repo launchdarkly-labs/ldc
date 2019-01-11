@@ -3,7 +3,7 @@ package cmd
 import (
 	"errors"
 
-	"gopkg.in/abiosoft/ishell.v2"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )

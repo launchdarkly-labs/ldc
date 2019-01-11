@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/launchdarkly/api-client-go"
+	ldapi "github.com/launchdarkly/api-client-go"
 )
 
 var Auth context.Context
