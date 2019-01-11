@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -206,4 +207,12 @@ func renderJSON(c *ishell.Context) bool {
 
 func isInteractive(c *ishell.Context) bool {
 	return reflect.DeepEqual(c.Get(cINTERACTIVE), true)
+}
+
+func renderPagedTable(c *ishell.Context, buf bytes.Buffer) {
+	if buf.Len() > 1000 {
+		c.Err(c.ShowPaged(buf.String()))
+	} else {
+		c.Print(buf.String())
+	}
 }

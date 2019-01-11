@@ -38,7 +38,7 @@ var shellCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	cmd := rootCmd
-	rootCmdWithShell := rootCmd
+	rootCmdWithShell := *rootCmd
 	rootCmdWithShell.AddCommand(shellCmd)
 	foundCmd, _, err := rootCmdWithShell.Find(os.Args[1:])
 	if err == nil && foundCmd.Use == "shell" {

@@ -104,7 +104,7 @@ func getGoalArg(c *ishell.Context) *goalapi.Goal {
 	if choice < 0 {
 		return nil
 	}
-	foundGoal, _ := goalapi.GetGoal(options[choice])
+	foundGoal, _ := goalapi.GetGoal(goals[choice].ID)
 	return foundGoal
 }
 
