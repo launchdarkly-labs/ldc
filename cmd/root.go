@@ -101,7 +101,9 @@ func init() {
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("ldc")
 	viper.SetConfigName("ldc")
-	viper.BindPFlags(pflag.CommandLine)
+	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
+		panic(err)
+	}
 }
 
 func PreRunCmd(cmd *cobra.Command, args []string) {
@@ -162,16 +164,19 @@ func AddTokenCommand(shell *ishell.Shell) {
 		Name: "token",
 		Help: "set api key",
 		Func: func(c *ishell.Context) {
-			var token string
-			if len(c.Args) == 1 {
-				token = c.Args[0]
-			}
 			if len(c.Args) > 1 {
 				c.Err(errors.New("Only one argument, the api key, is allowed"))
 				return
 			}
-			c.Print("API Key: ")
-			token = c.ReadPassword()
+
+			var token string
+			if len(c.Args) == 1 {
+				token = c.Args[0]
+			} else {
+				c.Print("API Key: ")
+				token = c.ReadPassword()
+			}
+
 			api.SetToken(token)
 			printCurrentToken(c)
 		},
@@ -308,7 +313,7 @@ func createShell(interactive bool) *ishell.Shell {
 func RootCmd(cmd *cobra.Command, args []string) {
 	shell := createShell(false)
 	if len(args) == 0 {
-		cmd.Usage()
+		_ = cmd.Usage()
 		fmt.Print(shell.HelpText())
 		os.Exit(0)
 	}
@@ -322,7 +327,7 @@ func RootCmd(cmd *cobra.Command, args []string) {
 func ShellCmd(cmd *cobra.Command, args []string) {
 	shell := createShell(true)
 	shell.Printf("LaunchDarkly CLI %s\n", Version)
-	shell.Process("pwd")
+	_ = shell.Process("pwd")
 	shell.Run()
 }
 

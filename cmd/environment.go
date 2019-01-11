@@ -9,6 +9,7 @@ import (
 	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	ldapi "github.com/launchdarkly/api-client-go"
+
 	"github.com/launchdarkly/ldc/api"
 )
 
@@ -144,7 +145,7 @@ func showEnvironments(c *ishell.Context) {
 		table.SetRowLine(true)
 		table.Render()
 		if buf.Len() > 1000 {
-			c.ShowPaged(buf.String())
+			c.Err(c.ShowPaged(buf.String()))
 		} else {
 			c.Print(buf.String())
 		}
@@ -159,31 +160,26 @@ func getEnvironmentArg(c *ishell.Context) *ldapi.Environment {
 		c.Err(err)
 		return nil
 	}
-	var foundEnvironment *ldapi.Environment
 	var environmentKey string
 	if len(c.Args) > 0 {
 		environmentKey = c.Args[0]
 		for _, environment := range environments {
 			if environment.Key == environmentKey {
-				copy := environment
-				foundEnvironment = &copy
+				return &environment // nolint:scopelint // ok because we return
 			}
 		}
-	} else {
-		// TODO LOL
-		options, err := listEnvironmentKeys()
-		if err != nil {
-			c.Err(err)
-			return nil
-		}
-		choice := c.MultiChoice(options, "Choose an environment")
-		if choice < 0 {
-			return nil
-		}
-		foundEnvironment = &environments[choice]
-		environmentKey = foundEnvironment.Key
 	}
-	return foundEnvironment
+
+	options, err := listEnvironmentKeys()
+	if err != nil {
+		c.Err(err)
+		return nil
+	}
+	choice := c.MultiChoice(options, "Choose an environment")
+	if choice < 0 {
+		return nil
+	}
+	return &environments[choice]
 }
 
 func createEnvironment(c *ishell.Context) {

@@ -7,12 +7,12 @@ import (
 	"strconv"
 
 	ldapi "github.com/launchdarkly/api-client-go"
-	"github.com/launchdarkly/ldc/api"
-
-	"github.com/launchdarkly/ldc/goal_api"
 
 	"github.com/olekukonko/tablewriter"
 	ishell "gopkg.in/abiosoft/ishell.v2"
+
+	"github.com/launchdarkly/ldc/api"
+	"github.com/launchdarkly/ldc/goal_api"
 )
 
 var goalCompleter = makeCompleter(emptyOnError(listGoalNames))
@@ -148,7 +148,7 @@ func showGoals(c *ishell.Context) {
 	table.SetAutoWrapText(false)
 	table.Render()
 	if buf.Len() > 1000 {
-		c.ShowPaged(buf.String())
+		c.Err(c.ShowPaged(buf.String()))
 	} else {
 		c.Print(buf.String())
 	}
@@ -294,7 +294,7 @@ func detachGoal(c *ishell.Context) {
 	var pos *int
 	for p, g := range flag.GoalIds {
 		if g == goal.Id {
-			pos = &p
+			pos = &p // nolint:scopelint // ok because we break
 			break
 		}
 	}

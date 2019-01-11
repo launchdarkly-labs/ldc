@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+
 	"gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
@@ -53,19 +54,15 @@ func getConfigArg(c *ishell.Context) (string, *Config) {
 		return options[choice], &config
 	}
 
-	var foundConfig *Config
 	configKey := c.Args[0]
 	for c, v := range configs {
 		if c == configKey {
-			foundConfig = &v
-			break
+			return c, &v // nolint:scopelint // ok because we break
 		}
 	}
-	if foundConfig == nil {
-		c.Err(errors.New("config does not exist"))
-		return "", nil
-	}
-	return configKey, foundConfig
+
+	c.Err(errors.New("config does not exist"))
+	return "", nil
 }
 
 func selectConfig(c *ishell.Context) {

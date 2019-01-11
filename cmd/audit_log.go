@@ -38,7 +38,7 @@ func AddAuditLogCommands(shell *ishell.Shell) {
 			}
 			table.Render()
 			if buf.Len() > 1000 {
-				c.ShowPaged(buf.String())
+				c.Err(c.ShowPaged(buf.String()))
 			} else {
 				c.Println(buf.String())
 			}

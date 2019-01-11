@@ -95,7 +95,7 @@ func listProjectsTable(c *ishell.Context) {
 	}
 	table.Render()
 	if buf.Len() > 1000 {
-		c.ShowPaged(buf.String())
+		c.Err(c.ShowPaged(buf.String()))
 	} else {
 		c.Print(buf.String())
 	}
@@ -217,11 +217,4 @@ func deleteProject(c *ishell.Context) {
 	if isInteractive(c) {
 		c.Printf("Deleted project %s\n", project.Key)
 	}
-}
-
-func updateProject(c *ishell.Context) {
-	//???
-	// this sucks, json patch
-	//api.Client.ProjectsApi.PatchProject(api.Auth, "abc"
-
 }

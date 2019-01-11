@@ -110,7 +110,7 @@ func GetGoal(key string) (*Goal, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	var goal Goal
 	if err := json.Unmarshal(body, &goal); err != nil {
@@ -144,7 +144,7 @@ func GetGoals() ([]Goal, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected response: %s", resp.Status)
@@ -180,7 +180,7 @@ func CreateGoal(goal Goal) (*Goal, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("unexpected response: %s", resp.Status)
@@ -231,7 +231,7 @@ func PatchGoal(id string, patchComment ldapi.PatchComment) (*Goal, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected response: %s", resp.Status)

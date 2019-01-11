@@ -7,9 +7,10 @@ import (
 	"reflect"
 	"strings"
 
-	ldapi "github.com/launchdarkly/api-client-go"
 	"github.com/mattbaird/jsonpatch"
 	ishell "gopkg.in/abiosoft/ishell.v2"
+
+	ldapi "github.com/launchdarkly/api-client-go"
 )
 
 const (
@@ -63,7 +64,7 @@ func makeCompleter(fetch func() []string) func(args []string) []string {
 
 func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, err error) {
 	editor := c.Get(EDITOR).(string)
-	cmd := exec.Command("command", "-v", editor)
+	cmd := exec.Command("command", "-v", editor) // nolint:gosec // ok to launch subprocess with variable
 	editorPathRaw, err := cmd.Output()
 	if err != nil {
 		c.Err(err)
@@ -99,7 +100,7 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 			return nil, err
 		}
 
-		file, err = os.Open(name)
+		file, err = os.Open(name) // nolint:gosec // G304: Potential file inclusion via variable // ok because we created name
 		if err != nil {
 			return nil, err
 		}
