@@ -53,16 +53,14 @@ func addGoalCommands(shell *ishell.Shell) {
 	root.AddCmd(&ishell.Cmd{
 		Name:      "attach",
 		Help:      "attach to flag",
-		Completer: goalCompleter,
-		//Completer: attachGoalCompleter, // TODO: figure out how to do context-dependent completion
-		Func: attachGoal,
+		Completer: attachGoalCompleter,
+		Func:      attachGoal,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:      "detach",
 		Help:      "detach from flag",
-		Completer: goalCompleter,
-		//Completer: detachGoalCompleter, // TODO: figure out how to do context-dependent completion
-		Func: detachGoal,
+		Completer: detachGoalCompleter,
+		Func:      detachGoal,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:      "edit",
@@ -106,7 +104,7 @@ func getGoalArg(c *ishell.Context) *goalapi.Goal {
 	if choice < 0 {
 		return nil
 	}
-	foundGoal, _ := goalapi.GetGoal(options[choice])
+	foundGoal, _ := goalapi.GetGoal(goals[choice].ID)
 	return foundGoal
 }
 
@@ -313,43 +311,40 @@ func detachGoal(c *ishell.Context) {
 	}
 }
 
-// TODO: enable these when we can do context specific completion
-//
-//func attachGoalCompleter(args []string) []string {
-//	fmt.Printf("attach completer: %+v\n", args)
-//	if len(args) <= 1 {
-//		return goalCompleter(args)
-//	}
-//
-//	if len(args) > 2 {
-//		return nil
-//	}
-//
-//	return flagCompleter(args[1:])
-//}
-//
-//func detachGoalCompleter(args []string) (completions []string) {
-//	if len(args) <= 1 {
-//		return goalCompleter(args)
-//	}
-//
-//	if len(args) > 2 {
-//		return nil
-//	}
-//
-//	goals, _ := goalapi.GetGoals()
-//	goalKey := args[0]
-//	for _, g := range goals {
-//		if g.ID == goalKey || g.Name == goalKey {
-//			goal, err := goalapi.GetGoal(g.ID)
-//			if err != nil {
-//				return nil
-//			}
-//			for _, f := range goal.AttachedFeatures {
-//				completions = append(completions, f.Key)
-//			}
-//		}
-//	}
-//
-//	return nil
-//}
+func attachGoalCompleter(args []string) []string {
+	if len(args) == 0 {
+		return nonFinalCompleter(goalCompleter)(args)
+	}
+
+	if len(args) > 2 {
+		return nil
+	}
+
+	return flagCompleter(args[1:])
+}
+
+func detachGoalCompleter(args []string) (completions []string) {
+	if len(args) == 0 {
+		return nonFinalCompleter(goalCompleter)(args)
+	}
+
+	if len(args) > 2 {
+		return nil
+	}
+
+	goals, _ := goalapi.GetGoals()
+	goalKey := args[0]
+	for _, g := range goals {
+		if g.ID == goalKey || g.Name == goalKey {
+			goal, err := goalapi.GetGoal(g.ID)
+			if err != nil {
+				return nil
+			}
+			for _, f := range goal.AttachedFeatures {
+				completions = append(completions, f.Key)
+			}
+		}
+	}
+
+	return completions
+}

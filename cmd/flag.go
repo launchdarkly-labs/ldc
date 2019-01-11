@@ -3,7 +3,10 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/olekukonko/tablewriter"
@@ -30,6 +33,12 @@ func addFlagCommands(shell *ishell.Shell) {
 		Aliases:   []string{"ls", "l", "show"},
 		Completer: flagCompleter,
 		Func:      showFlags,
+	})
+	root.AddCmd(&ishell.Cmd{
+		Name:      "show",
+		Help:      "show",
+		Completer: flagCompleter,
+		Func:      showFlag,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:    "create",
@@ -166,6 +175,15 @@ func listFlagKeys() ([]string, error) {
 	return keys, nil
 }
 
+func showFlag(c *ishell.Context) {
+	flag := getFlagArg(c, 0)
+	if flag == nil {
+		c.Err(errors.New("flag not found"))
+		return
+	}
+	renderFlag(c, *flag)
+}
+
 func showFlags(c *ishell.Context) {
 	if len(c.Args) > 0 {
 		flag := getFlagArg(c, 0)
@@ -189,12 +207,7 @@ func showFlags(c *ishell.Context) {
 		table.Append([]string{flag.Key, flag.Name, flag.Description})
 	}
 	table.Render()
-	if buf.Len() > 1000 {
-
-		c.Err(c.ShowPaged(buf.String()))
-	} else {
-		c.Print(buf.String())
-	}
+	renderPagedTable(c, buf)
 }
 
 func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
@@ -208,23 +221,32 @@ func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
 		return
 	}
 
-	c.Printf("Key: %s\n", flag.Key)
-	c.Printf("Name: %s\n", flag.Name)
-	c.Printf("Tags: %v\n", flag.Tags)
-	c.Printf("Kind: %s\n", flag.Kind)
+	buf := bytes.Buffer{}
+	table := tablewriter.NewWriter(&buf)
+	table.SetHeader([]string{"Field", "Value"})
+	table.Append([]string{"Key", flag.Key})
+	table.Append([]string{"Name", flag.Key})
+	table.Append([]string{"Tags", strings.Join(flag.Tags, " ")})
+	table.Append([]string{"Kind", flag.Kind})
+	table.Append([]string{"Goal IDs", strings.Join(flag.GoalIds, " ")})
+	table.Render()
+	c.Print(buf.String())
+
 	if flag.Kind == "multivariate" {
 		c.Println("Variations:")
 		buf := bytes.Buffer{}
 		table := tablewriter.NewWriter(&buf)
-		table.SetHeader([]string{"Name", "Description", "Value"})
-		for _, variation := range flag.Variations {
-			table.Append([]string{variation.Name, variation.Description, fmt.Sprintf("%v", *variation.Value)})
+		table.SetHeader([]string{"Index", "Name", "Description", "Value"})
+		for i, variation := range flag.Variations {
+			valueBuf, _ := json.Marshal(variation.Value)
+			table.Append([]string{strconv.Itoa(i), variation.Name, variation.Description, string(valueBuf)})
 		}
 		table.Render()
 		c.Println(buf.String())
 	}
-	buf := bytes.Buffer{}
-	table := tablewriter.NewWriter(&buf)
+
+	buf = bytes.Buffer{}
+	table = tablewriter.NewWriter(&buf)
 	table.SetHeader([]string{"Environment", "On", "Last Modified"})
 	for envKey, envStatus := range flag.Environments {
 		table.Append([]string{envKey, fmt.Sprintf("%v", envStatus.On), time.Unix(envStatus.LastModified/1000, 0).Format("2006/01/02 15:04")})

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -57,6 +58,17 @@ func makeCompleter(fetch func() []string) func(args []string) []string {
 				}
 				completions = append(completions, key)
 			}
+		}
+		return completions
+	}
+}
+
+// nonFinalCompleter adds a space after completion options which allows autocomplete to work with multiple commands
+func nonFinalCompleter(completer func(args []string) []string) func(args []string) []string {
+	return func(args []string) (completions []string) {
+		original := completer(args)
+		for _, s := range original {
+			completions = append(completions, s+" ")
 		}
 		return completions
 	}
@@ -195,4 +207,12 @@ func renderJSON(c *ishell.Context) bool {
 
 func isInteractive(c *ishell.Context) bool {
 	return reflect.DeepEqual(c.Get(cINTERACTIVE), true)
+}
+
+func renderPagedTable(c *ishell.Context, buf bytes.Buffer) {
+	if buf.Len() > 1000 {
+		c.Err(c.ShowPaged(buf.String()))
+	} else {
+		c.Print(buf.String())
+	}
 }
