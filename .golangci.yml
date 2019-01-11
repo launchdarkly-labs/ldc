@@ -10,7 +10,6 @@ linters:
     - gochecknoinits
     - gochecknoglobals
     - gofmt
-    - golint
     - lll
     - maligned
     - prealloc

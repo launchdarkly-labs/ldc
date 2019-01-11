@@ -12,12 +12,12 @@ import (
 	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
-	"github.com/launchdarkly/ldc/goal_api"
+	"github.com/launchdarkly/ldc/goalapi"
 )
 
 var goalCompleter = makeCompleter(emptyOnError(listGoalNames))
 
-func AddGoalsCommands(shell *ishell.Shell) {
+func addGoalCommands(shell *ishell.Shell) {
 
 	root := &ishell.Cmd{
 		Name:    "goals",
@@ -81,13 +81,13 @@ func AddGoalsCommands(shell *ishell.Shell) {
 	shell.AddCmd(root)
 }
 
-func getGoalArg(c *ishell.Context) *goal_api.Goal {
-	goals, _ := goal_api.GetGoals()
+func getGoalArg(c *ishell.Context) *goalapi.Goal {
+	goals, _ := goalapi.GetGoals()
 	if len(c.Args) > 0 {
 		goalKey := c.Args[0]
 		for _, g := range goals {
-			if g.Id == goalKey || g.Name == goalKey {
-				foundGoal, err := goal_api.GetGoal(g.Id)
+			if g.ID == goalKey || g.Name == goalKey {
+				foundGoal, err := goalapi.GetGoal(g.ID)
 				if err != nil {
 					c.Err(err)
 					return nil
@@ -106,13 +106,13 @@ func getGoalArg(c *ishell.Context) *goal_api.Goal {
 	if choice < 0 {
 		return nil
 	}
-	foundGoal, _ := goal_api.GetGoal(options[choice])
+	foundGoal, _ := goalapi.GetGoal(options[choice])
 	return foundGoal
 }
 
 func listGoalNames() ([]string, error) {
 	var keys []string
-	g, err := goal_api.GetGoals()
+	g, err := goalapi.GetGoals()
 	if err != nil {
 		return nil, err
 	}
@@ -133,16 +133,16 @@ func showGoals(c *ishell.Context) {
 		return
 	}
 
-	goals, err := goal_api.GetGoals()
+	goals, err := goalapi.GetGoals()
 	if err != nil {
 		c.Err(err)
 		return
 	}
 	buf := bytes.Buffer{}
 	table := tablewriter.NewWriter(&buf)
-	table.SetHeader([]string{"Name", "Id", "Description", "Kind", "Attached Flags"})
+	table.SetHeader([]string{"Name", "ID", "Description", "Kind", "Attached Flags"})
 	for _, goal := range goals {
-		table.Append([]string{goal.Name, goal.Id, goal.Description, goal.Kind, strconv.Itoa(goal.AttachedFeatureCount)})
+		table.Append([]string{goal.Name, goal.ID, goal.Description, goal.Kind, strconv.Itoa(goal.AttachedFeatureCount)})
 	}
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(false)
@@ -154,8 +154,8 @@ func showGoals(c *ishell.Context) {
 	}
 }
 
-func renderGoal(c *ishell.Context, goal *goal_api.Goal) {
-	if renderJson(c) {
+func renderGoal(c *ishell.Context, goal *goalapi.Goal) {
+	if renderJSON(c) {
 		data, err := json.MarshalIndent(goal, "", " ")
 		if err != nil {
 			c.Err(err)
@@ -204,7 +204,7 @@ func editGoal(c *ishell.Context) {
 		return
 	}
 
-	_, err = goal_api.PatchGoal(goal.Id, *patchComment)
+	_, err = goalapi.PatchGoal(goal.ID, *patchComment)
 	if err != nil {
 		c.Err(err)
 		return
@@ -225,12 +225,12 @@ func createCustomGoal(c *ishell.Context) {
 		c.Print("Key: ")
 		key = c.ReadLine()
 	}
-	goal := goal_api.Goal{
+	goal := goalapi.Goal{
 		Name: name,
 		Kind: "custom",
 		Key:  &key,
 	}
-	newGoal, err := goal_api.CreateGoal(goal)
+	newGoal, err := goalapi.CreateGoal(goal)
 	if err != nil {
 		c.Err(err)
 		return
@@ -238,7 +238,7 @@ func createCustomGoal(c *ishell.Context) {
 	if isInteractive(c) {
 		c.Println("Created goal")
 	}
-	if renderJson(c) {
+	if renderJSON(c) {
 		renderGoal(c, newGoal)
 	}
 }
@@ -246,7 +246,7 @@ func createCustomGoal(c *ishell.Context) {
 func deleteGoal(c *ishell.Context) {
 	goal := getGoalArg(c)
 
-	err := goal_api.DeleteGoal(goal.Id)
+	err := goalapi.DeleteGoal(goal.ID)
 	if err != nil {
 		c.Err(err)
 	} else {
@@ -257,26 +257,25 @@ func deleteGoal(c *ishell.Context) {
 func boolToCheck(b bool) string {
 	if b {
 		return "X"
-	} else {
-		return " "
 	}
+	return " "
 }
 
 func attachGoal(c *ishell.Context) {
-	var goal *goal_api.Goal
+	var goal *goalapi.Goal
 	var flag *ldapi.FeatureFlag
 	goal = getGoalArg(c)
 	flag = getFlagArg(c, 1)
 
 	for _, g := range flag.GoalIds {
-		if g == goal.Id {
+		if g == goal.ID {
 			c.Println("Goal already attached")
 			return
 		}
 	}
 
 	patchComment := ldapi.PatchComment{
-		Patch: []ldapi.PatchOperation{{Op: "add", Path: "/goalIds/-", Value: interfacePtr(goal.Id)}},
+		Patch: []ldapi.PatchOperation{{Op: "add", Path: "/goalIds/-", Value: interfacePtr(goal.ID)}},
 	}
 	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
 	if err != nil {
@@ -286,14 +285,14 @@ func attachGoal(c *ishell.Context) {
 }
 
 func detachGoal(c *ishell.Context) {
-	var goal *goal_api.Goal
+	var goal *goalapi.Goal
 	var flag *ldapi.FeatureFlag
 	goal = getGoalArg(c)
 	flag = getFlagArg(c, 1)
 
 	var pos *int
 	for p, g := range flag.GoalIds {
-		if g == goal.Id {
+		if g == goal.ID {
 			pos = &p // nolint:scopelint // ok because we break
 			break
 		}
@@ -338,11 +337,11 @@ func detachGoal(c *ishell.Context) {
 //		return nil
 //	}
 //
-//	goals, _ := goal_api.GetGoals()
+//	goals, _ := goalapi.GetGoals()
 //	goalKey := args[0]
 //	for _, g := range goals {
-//		if g.Id == goalKey || g.Name == goalKey {
-//			goal, err := goal_api.GetGoal(g.Id)
+//		if g.ID == goalKey || g.Name == goalKey {
+//			goal, err := goalapi.GetGoal(g.ID)
 //			if err != nil {
 //				return nil
 //			}

@@ -23,15 +23,15 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:              "ldc",
 	Short:            "ldc is a command-line api client for LaunchDarkly",
-	PersistentPreRun: PreRunCmd,
-	Run:              RootCmd,
+	PersistentPreRun: preRunCmd,
+	Run:              runRootCmd,
 }
 
 // rootCmd represents the base command when called without any subcommands
 var shellCmd = &cobra.Command{
 	Use:   "shell",
 	Short: "start an interactive shell",
-	Run:   ShellCmd,
+	Run:   runShellCmd,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -47,14 +47,18 @@ func Execute() {
 	}
 }
 
-type Config struct {
-	ApiToken           string
-	Server             string
-	DefaultProject     string
+type config struct {
+	// APIToken is the authorization token
+	APIToken string
+	// Server is the api url (.../v2)
+	Server string
+	// DefaultProject is the initial project to use
+	DefaultProject string
+	// DefaultEnvironment is the initial environment to use
 	DefaultEnvironment string
 }
 
-var configFile map[string]Config
+var configFile map[string]config
 
 var configViper *viper.Viper
 
@@ -106,7 +110,7 @@ func init() {
 	}
 }
 
-func PreRunCmd(cmd *cobra.Command, args []string) {
+func preRunCmd(cmd *cobra.Command, args []string) {
 	configs, err := listConfigs()
 	if err != nil {
 		configs = nil
@@ -159,7 +163,7 @@ func PreRunCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func AddTokenCommand(shell *ishell.Shell) {
+func addTokenCommands(shell *ishell.Shell) {
 	root := &ishell.Cmd{
 		Name: "token",
 		Help: "set api key",
@@ -205,7 +209,7 @@ func createShell(interactive bool) *ishell.Shell {
 		Name:      "json",
 		Help:      "set json mode",
 		Completer: boolCompleter,
-		Func:      setJsonMode,
+		Func:      setJSONMode,
 	})
 
 	shell.AddCmd(&ishell.Cmd{
@@ -286,31 +290,31 @@ func createShell(interactive bool) *ishell.Shell {
 		Help: "Run shell",
 	})
 
-	AddFlagCommands(shell)
-	AddProjectCommands(shell)
-	AddEnvironmentCommands(shell)
-	AddAuditLogCommands(shell)
-	AddTokenCommand(shell)
-	AddGoalsCommands(shell)
+	addFlagCommands(shell)
+	addProjectCommands(shell)
+	addEnvironmentCommands(shell)
+	addAuditLogCommands(shell)
+	addTokenCommands(shell)
+	addGoalCommands(shell)
 
-	isJson := viper.GetBool("json")
-	shell.Set(JSON, isJson)
-	if !isJson {
+	isJSON := viper.GetBool("json")
+	shell.Set(cJSON, isJSON)
+	if !isJSON {
 		if configViper.ConfigFileUsed() != "" {
 			fmt.Printf("Using config file: %s\n", configViper.ConfigFileUsed())
 		}
 	}
 
-	shell.Set(EDITOR, "vi")
-	if editor := os.Getenv("EDITOR"); editor != "" {
-		shell.Set(EDITOR, editor)
+	shell.Set(cEDITOR, "vi")
+	if editor := os.Getenv("cEDITOR"); editor != "" {
+		shell.Set(cEDITOR, editor)
 	}
 
-	shell.Set(INTERACTIVE, interactive)
+	shell.Set(cINTERACTIVE, interactive)
 	return shell
 }
 
-func RootCmd(cmd *cobra.Command, args []string) {
+func runRootCmd(cmd *cobra.Command, args []string) {
 	shell := createShell(false)
 	if len(args) == 0 {
 		_ = cmd.Usage()
@@ -324,7 +328,7 @@ func RootCmd(cmd *cobra.Command, args []string) {
 	}
 }
 
-func ShellCmd(cmd *cobra.Command, args []string) {
+func runShellCmd(cmd *cobra.Command, args []string) {
 	shell := createShell(true)
 	shell.Printf("LaunchDarkly CLI %s\n", Version)
 	_ = shell.Process("pwd")
@@ -353,7 +357,7 @@ func last4(s string) string {
 var boolOptions = []string{"false", "true"}
 var boolCompleter = makeCompleter(func() []string { return boolOptions })
 
-func setJsonMode(c *ishell.Context) {
+func setJSONMode(c *ishell.Context) {
 	var value string
 	if len(c.Args) == 1 {
 		value = c.Args[0]
@@ -369,9 +373,9 @@ func setJsonMode(c *ishell.Context) {
 		}
 		value = boolOptions[choice]
 	}
-	isJson := strings.ToLower(value) == "true" || strings.ToLower(value) == "t"
-	setJson(isJson)
-	if isJson {
+	isJSON := strings.ToLower(value) == "true" || strings.ToLower(value) == "t"
+	setJSON(isJSON)
+	if isJSON {
 		c.Println("JSON enabled")
 	} else {
 		c.Println("JSON disabled")

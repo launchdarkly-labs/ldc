@@ -16,7 +16,7 @@ import (
 
 var flagCompleter = makeCompleter(emptyOnError(listFlagKeys))
 
-func AddFlagCommands(shell *ishell.Shell) {
+func addFlagCommands(shell *ishell.Shell) {
 
 	root := &ishell.Cmd{
 		Name:    "flags",
@@ -198,7 +198,7 @@ func showFlags(c *ishell.Context) {
 }
 
 func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
-	if renderJson(c) {
+	if renderJSON(c) {
 		data, err := json.MarshalIndent(flag, "", "  ")
 		if err != nil {
 			c.Err(err)
@@ -260,7 +260,7 @@ func createToggleFlag(c *ishell.Context) {
 		c.Err(err)
 		return
 	}
-	if renderJson(c) {
+	if renderJSON(c) {
 		renderFlag(c, flag)
 	}
 }

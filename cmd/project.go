@@ -14,7 +14,7 @@ import (
 	"github.com/launchdarkly/ldc/api"
 )
 
-func AddProjectCommands(shell *ishell.Shell) {
+func addProjectCommands(shell *ishell.Shell) {
 	root := &ishell.Cmd{
 		Name:    "projects",
 		Aliases: []string{"project"},
@@ -138,7 +138,7 @@ func getProjectArg(c *ishell.Context) *ldapi.Project {
 				return &project // nolint:scopelint // ok because we return immediately
 			}
 		}
-		c.Err(fmt.Errorf("Project %s does not exist\n", projectKey))
+		c.Err(fmt.Errorf(`project "%s" does not exist`, projectKey))
 		return nil
 	}
 
@@ -169,7 +169,7 @@ func createProject(c *ishell.Context) {
 		key = c.Args[0]
 		name = c.Args[1]
 	default:
-		c.Err(errors.New("too many arguments.  Expected arguments are: key [name]."))
+		c.Err(errors.New(`expected arguments are "key [name]"`))
 		return
 	}
 	// TODO: openapi should be updated to return the new project
@@ -177,7 +177,7 @@ func createProject(c *ishell.Context) {
 		c.Err(err)
 		return
 	}
-	if !renderJson(c) {
+	if !renderJSON(c) {
 		c.Printf("Created project %s\n", key)
 	}
 	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, key)
@@ -186,7 +186,7 @@ func createProject(c *ishell.Context) {
 		return
 	}
 	switchToProject(c, &project)
-	if renderJson(c) {
+	if renderJSON(c) {
 		data, err := json.MarshalIndent(project, "", "  ")
 		if err != nil {
 			c.Err(err)

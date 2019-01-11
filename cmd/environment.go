@@ -13,7 +13,7 @@ import (
 	"github.com/launchdarkly/ldc/api"
 )
 
-func AddEnvironmentCommands(shell *ishell.Shell) {
+func addEnvironmentCommands(shell *ishell.Shell) {
 	root := &ishell.Cmd{
 		Name:    "environments",
 		Aliases: []string{"environment", "env", "envs", "e"},
@@ -195,7 +195,7 @@ func createEnvironment(c *ishell.Context) {
 		key = c.Args[0]
 		name = c.Args[1]
 	default:
-		c.Err(errors.New("too many arguments.  Expected arguments are: key [name]."))
+		c.Err(errors.New(`expected arguments are "key [name]""`))
 		return
 	}
 	_, err := api.Client.EnvironmentsApi.PostEnvironment(api.Auth, api.CurrentProject, ldapi.EnvironmentPost{Key: key, Name: name, Color: "000000"})

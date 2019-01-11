@@ -11,7 +11,7 @@ import (
 	"github.com/launchdarkly/ldc/api"
 )
 
-func AddAuditLogCommands(shell *ishell.Shell) {
+func addAuditLogCommands(shell *ishell.Shell) {
 	root := &ishell.Cmd{
 		Name: "log",
 		Help: "search audit log entries",
