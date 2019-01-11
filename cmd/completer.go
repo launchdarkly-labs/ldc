@@ -3,9 +3,8 @@ package cmd
 import (
 	"strings"
 
+	shlex "github.com/flynn-archive/go-shlex"
 	ishell "gopkg.in/abiosoft/ishell.v2"
-
-	"github.com/flynn-archive/go-shlex"
 )
 
 type customCompleter struct {

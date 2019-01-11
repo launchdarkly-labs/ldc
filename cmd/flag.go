@@ -182,7 +182,6 @@ func showFlag(c *ishell.Context) {
 		return
 	}
 	renderFlag(c, *flag)
-	return
 }
 
 func showFlags(c *ishell.Context) {
