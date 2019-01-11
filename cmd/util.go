@@ -7,15 +7,16 @@ import (
 	"reflect"
 	"strings"
 
-	ldapi "github.com/launchdarkly/api-client-go"
 	"github.com/mattbaird/jsonpatch"
 	ishell "gopkg.in/abiosoft/ishell.v2"
+
+	ldapi "github.com/launchdarkly/api-client-go"
 )
 
 const (
-	INTERACTIVE = "interactive"
-	EDITOR      = "editor"
-	JSON        = "json"
+	cINTERACTIVE = "interactive"
+	cEDITOR      = "editor"
+	cJSON        = "json"
 )
 
 func confirmDelete(c *ishell.Context, name string, expectedValue string) bool {
@@ -62,8 +63,8 @@ func makeCompleter(fetch func() []string) func(args []string) []string {
 }
 
 func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, err error) {
-	editor := c.Get(EDITOR).(string)
-	cmd := exec.Command("command", "-v", editor)
+	editor := c.Get(cEDITOR).(string)
+	cmd := exec.Command("command", "-v", editor) // nolint:gosec // ok to launch subprocess with variable
 	editorPathRaw, err := cmd.Output()
 	if err != nil {
 		c.Err(err)
@@ -99,7 +100,7 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 			return nil, err
 		}
 
-		file, err = os.Open(name)
+		file, err = os.Open(name) // nolint:gosec // G304: Potential file inclusion via variable // ok because we created name
 		if err != nil {
 			return nil, err
 		}
@@ -181,17 +182,17 @@ func yesOrNo(c *ishell.Context) (yes bool) {
 
 var jsonMode *bool
 
-func setJson(val bool) {
+func setJSON(val bool) {
 	jsonMode = &val
 }
 
-func renderJson(c *ishell.Context) bool {
+func renderJSON(c *ishell.Context) bool {
 	if jsonMode != nil {
 		return *jsonMode
 	}
-	return reflect.DeepEqual(c.Get(JSON), true)
+	return reflect.DeepEqual(c.Get(cJSON), true)
 }
 
 func isInteractive(c *ishell.Context) bool {
-	return reflect.DeepEqual(c.Get(INTERACTIVE), true)
+	return reflect.DeepEqual(c.Get(cINTERACTIVE), true)
 }

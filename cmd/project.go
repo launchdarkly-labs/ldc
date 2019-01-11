@@ -10,10 +10,11 @@ import (
 	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	ldapi "github.com/launchdarkly/api-client-go"
+
 	"github.com/launchdarkly/ldc/api"
 )
 
-func AddProjectCommands(shell *ishell.Shell) {
+func addProjectCommands(shell *ishell.Shell) {
 	root := &ishell.Cmd{
 		Name:    "projects",
 		Aliases: []string{"project"},
@@ -95,7 +96,7 @@ func listProjectsTable(c *ishell.Context) {
 	}
 	table.Render()
 	if buf.Len() > 1000 {
-		c.ShowPaged(buf.String())
+		c.Err(c.ShowPaged(buf.String()))
 	} else {
 		c.Print(buf.String())
 	}
@@ -130,33 +131,29 @@ func getProjectArg(c *ishell.Context) *ldapi.Project {
 		c.Err(err)
 		return nil
 	}
-	var foundProject *ldapi.Project
 	if len(c.Args) > 0 {
 		projectKey := c.Args[0]
 		for _, project := range projects {
 			if project.Key == projectKey {
-				copy := project
-				foundProject = &copy
+				return &project // nolint:scopelint // ok because we return immediately
 			}
 		}
-		if foundProject == nil {
-			c.Err(fmt.Errorf("Project %s does not exist\n", projectKey))
-			return nil
-		}
-	} else {
-		// TODO LOL
-		options, err := listProjectKeys()
-		if err != nil {
-			c.Err(err)
-			return nil
-		}
-		choice := c.MultiChoice(options, "Choose a project")
-		if choice < 0 {
-			return nil
-		}
-		foundProject = &projects[choice]
+		c.Err(fmt.Errorf(`project "%s" does not exist`, projectKey))
+		return nil
 	}
-	return foundProject
+
+	options, err := listProjectKeys()
+	if err != nil {
+		c.Err(err)
+		return nil
+	}
+
+	choice := c.MultiChoice(options, "Choose a project")
+	if choice < 0 {
+		return nil
+	}
+
+	return &projects[choice]
 }
 
 func createProject(c *ishell.Context) {
@@ -172,7 +169,7 @@ func createProject(c *ishell.Context) {
 		key = c.Args[0]
 		name = c.Args[1]
 	default:
-		c.Err(errors.New("too many arguments.  Expected arguments are: key [name]."))
+		c.Err(errors.New(`expected arguments are "key [name]"`))
 		return
 	}
 	// TODO: openapi should be updated to return the new project
@@ -180,7 +177,7 @@ func createProject(c *ishell.Context) {
 		c.Err(err)
 		return
 	}
-	if !renderJson(c) {
+	if !renderJSON(c) {
 		c.Printf("Created project %s\n", key)
 	}
 	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, key)
@@ -189,7 +186,7 @@ func createProject(c *ishell.Context) {
 		return
 	}
 	switchToProject(c, &project)
-	if renderJson(c) {
+	if renderJSON(c) {
 		data, err := json.MarshalIndent(project, "", "  ")
 		if err != nil {
 			c.Err(err)
@@ -217,11 +214,4 @@ func deleteProject(c *ishell.Context) {
 	if isInteractive(c) {
 		c.Printf("Deleted project %s\n", project.Key)
 	}
-}
-
-func updateProject(c *ishell.Context) {
-	//???
-	// this sucks, json patch
-	//api.Client.ProjectsApi.PatchProject(api.Auth, "abc"
-
 }

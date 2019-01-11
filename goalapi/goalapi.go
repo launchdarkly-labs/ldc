@@ -1,4 +1,5 @@
-package goal_api
+// Package goalapi provides goals via the v1 api.  goals are not yet included in the v2 api
+package goalapi
 
 import (
 	"bytes"
@@ -14,48 +15,58 @@ import (
 )
 
 const (
-	Click    = "click"
-	Custom   = "custom"
+	// Click represents a click goal
+	Click = "click"
+	// Custom represents a custom event goal
+	Custom = "custom"
+	// PageView indicates a page view goal
 	PageView = "pageview"
 )
 
-var AvailableKinds = []string{Click, Custom, PageView}
+// Kinds are all the kinds that we can use for a goal
+var Kinds = []string{Click, Custom, PageView}
 
-type UrlMatcherBase struct {
+// URLMatcherBase includes the kind of a url matcher in url matcher definitions
+type URLMatcherBase struct {
 	Kind string `json:"kind"`
 }
 
-type UrlMatcherCanonical struct {
-	UrlMatcherBase `json:",inline"`
-	Url            string `json:"url"`
+// URLMatcherCanonical describes a canonical url matcher
+type URLMatcherCanonical struct {
+	URLMatcherBase `json:",inline"`
+	URL            string `json:"url"`
 }
 
-type UrlMatcherExact struct {
-	UrlMatcherBase `json:",inline"`
-	Url            string `json:"url"`
+// URLMatcherExact describes an exact url matcher
+type URLMatcherExact struct {
+	URLMatcherBase `json:",inline"`
+	URL            string `json:"url"`
 }
 
-type UrlMatcherSubstring struct {
-	UrlMatcherBase `json:",inline"`
+// URLMatcherSubstring describes a substring url matcher
+type URLMatcherSubstring struct {
+	URLMatcherBase `json:",inline"`
 	Substring      string `json:"substring"`
 }
 
-type UrlMatcherRegex struct {
-	UrlMatcherBase `json:",inline"`
+// URLMatcherRegex describes a regex url matcher
+type URLMatcherRegex struct {
+	URLMatcherBase `json:",inline"`
 	Pattern        string `json:"pattern"`
 }
 
-type GoalUrlMatchers struct {
-	ExactUrls     []UrlMatcherExact     `json:"exactUrls,omitempty"`
-	CanonicalUrls []UrlMatcherCanonical `json:"canonicalUrls,omitempty"`
-	RegexUrls     []UrlMatcherRegex     `json:"regexUrls,omitempty"`
-	SubstringUrls []UrlMatcherSubstring `json:"substringUrls,omitempty"`
+// GoalURLMatchers describes the url matchers for a goal
+type GoalURLMatchers struct {
+	ExactURLs     []URLMatcherExact     `json:"exactUrls,omitempty"`
+	CanonicalURLs []URLMatcherCanonical `json:"canonicalUrls,omitempty"`
+	RegexURLs     []URLMatcherRegex     `json:"regexUrls,omitempty"`
+	SubstringURLs []URLMatcherSubstring `json:"substringUrls,omitempty"`
 }
 
-// Manually declare the goal type since it isn't part of the v2 api
+// Goal describes the goal type.
 type Goal struct {
-	// Id of the goal
-	Id string `json:"_id,omitempty"`
+	// ID of the goal
+	ID string `json:"_id,omitempty"`
 
 	// Name of the goal
 	Name string `json:"name,omitempty"`
@@ -63,45 +74,54 @@ type Goal struct {
 	// Description of the goal
 	Description string `json:"description,omitempty"`
 
-	// Whether the goal is custom, pageView or click
+	// Kind tells whether the goal is custom, pageView or click
 	Kind string `json:"kind,omitempty"`
 
 	// Key for custom goals
 	Key *string `json:"key,omitempty"`
 
-	// Whether the goal is being tracked by a flag
+	// IsActive indicates whether the goal is being tracked by a flag
 	IsActive bool `json:"isActive,omitempty"`
 
-	// A unix epoch time in milliseconds specifying the last modification time of this goal.
+	// LastModified is a unix epoch time in milliseconds specifying the last modification time of this goal.
 	LastModified float32 `json:"lastModified,omitempty"`
 
+	// AttachedFeatureCount is the number of attached goals
 	AttachedFeatureCount int `json:"_attachedFeatureCount,omitempty"`
 
-	Urls []GoalUrlMatchers `json:"urls,omitempty"`
+	// URLs are the url matchers attached to the goal
+	URLs []GoalURLMatchers `json:"urls,omitempty"`
 
-	// This is on the individual goal view
+	// AttachedFeatures describes the flags attached to this goal.  This is on the individual goal view.
 	AttachedFeatures []struct {
 		Key  string `json:"key"`
 		Name string `json:"name"`
 		On   bool   `json:"on"`
 	} `json:"_attachedFeatures,omitempty"`
 
+	// IsDeleteable indicates if the goal can be deleted
 	IsDeleteable bool `json:"_isDeleteable,omitempty"`
-	Source       *struct {
+
+	// Source is the source of the goal
+	Source *struct {
+		// Name is the name of the source
 		Name string `json:"name"`
 	} `json:"_source,omitempty"`
+
+	// Version is the version of the goal
 	Version int `json:"_version,omitempty"`
 }
 
-func GetGoal(key string) (*Goal, error) {
-	req, _ := http.NewRequest(http.MethodGet, makeURL("/api/goals/%s", key), nil)
+// GetGoal returns the goal with a given id
+func GetGoal(id string) (*Goal, error) {
+	req, _ := http.NewRequest(http.MethodGet, makeURL("/api/goals/%s", id), nil)
 	sdkKey, err := getCurrentSdkKey()
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Add("Authorization", sdkKey)
 
-	resp, err := api.HttpClient.Do(req)
+	resp, err := api.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +130,7 @@ func GetGoal(key string) (*Goal, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	var goal Goal
 	if err := json.Unmarshal(body, &goal); err != nil {
@@ -127,6 +147,7 @@ func getCurrentSdkKey() (string, error) {
 	return env.ApiKey, nil
 }
 
+// GetGoals returns all goals for the current environment
 func GetGoals() ([]Goal, error) {
 	req, _ := http.NewRequest(http.MethodGet, makeURL("/api/goals"), nil)
 	sdkKey, err := getCurrentSdkKey()
@@ -135,7 +156,7 @@ func GetGoals() ([]Goal, error) {
 	}
 	req.Header.Add("Authorization", sdkKey)
 
-	resp, err := api.HttpClient.Do(req)
+	resp, err := api.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +165,7 @@ func GetGoals() ([]Goal, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected response: %s", resp.Status)
@@ -161,6 +182,7 @@ func GetGoals() ([]Goal, error) {
 	return respData.Items, nil
 }
 
+// CreateGoal creates a goal in the current environment
 func CreateGoal(goal Goal) (*Goal, error) {
 	body, _ := json.Marshal(goal)
 	req, _ := http.NewRequest(http.MethodPost, makeURL("/api/goals"), bytes.NewBuffer(body))
@@ -171,7 +193,7 @@ func CreateGoal(goal Goal) (*Goal, error) {
 	req.Header.Add("Authorization", sdkKey)
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := api.HttpClient.Do(req)
+	resp, err := api.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +202,7 @@ func CreateGoal(goal Goal) (*Goal, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("unexpected response: %s", resp.Status)
@@ -193,6 +215,7 @@ func CreateGoal(goal Goal) (*Goal, error) {
 	return &newGoal, nil
 }
 
+// DeleteGoal deletes a goal in the current environment
 func DeleteGoal(id string) error {
 	req, _ := http.NewRequest(http.MethodDelete, makeURL("/api/goals/%s", id), nil)
 	sdkKey, err := getCurrentSdkKey()
@@ -201,7 +224,7 @@ func DeleteGoal(id string) error {
 	}
 	req.Header.Add("Authorization", sdkKey)
 
-	resp, err := api.HttpClient.Do(req)
+	resp, err := api.HTTPClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -213,6 +236,7 @@ func DeleteGoal(id string) error {
 	return nil
 }
 
+// PatchGoal patches a goal in the current environment
 func PatchGoal(id string, patchComment ldapi.PatchComment) (*Goal, error) {
 	body, _ := json.Marshal(patchComment)
 	req, _ := http.NewRequest(http.MethodPatch, makeURL("/api/goals/%s", id), bytes.NewBuffer(body))
@@ -222,7 +246,7 @@ func PatchGoal(id string, patchComment ldapi.PatchComment) (*Goal, error) {
 	}
 	req.Header.Add("Authorization", sdkKey)
 
-	resp, err := api.HttpClient.Do(req)
+	resp, err := api.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +255,7 @@ func PatchGoal(id string, patchComment ldapi.PatchComment) (*Goal, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected response: %s", resp.Status)

@@ -1,0 +1,10 @@
+project_name: ldc
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    main: .
+    binary: ldc
+    # Default is `-s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}`.
+    ldflags:
+      - -s -w -X cmd.Version={{.Version}}

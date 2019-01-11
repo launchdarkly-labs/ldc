@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"errors"
-	"gopkg.in/abiosoft/ishell.v2"
+
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )
 
-func listConfigs() (map[string]Config, error) {
+func listConfigs() (map[string]config, error) {
 	return configFile, nil
 }
 
@@ -32,7 +33,7 @@ func configCompleter(args []string) []string {
 	return completions
 }
 
-func getConfigArg(c *ishell.Context) (string, *Config) {
+func getConfigArg(c *ishell.Context) (string, *config) {
 	configs, err := listConfigs()
 	if err != nil {
 		c.Err(err)
@@ -53,19 +54,15 @@ func getConfigArg(c *ishell.Context) (string, *Config) {
 		return options[choice], &config
 	}
 
-	var foundConfig *Config
 	configKey := c.Args[0]
 	for c, v := range configs {
 		if c == configKey {
-			foundConfig = &v
-			break
+			return c, &v // nolint:scopelint // ok because we break
 		}
 	}
-	if foundConfig == nil {
-		c.Err(errors.New("config does not exist"))
-		return "", nil
-	}
-	return configKey, foundConfig
+
+	c.Err(errors.New("config does not exist"))
+	return "", nil
 }
 
 func selectConfig(c *ishell.Context) {
@@ -78,10 +75,10 @@ func selectConfig(c *ishell.Context) {
 	printCurrentSettings(c)
 }
 
-func setConfig(name string, config Config) {
+func setConfig(name string, config config) {
 	currentConfig = name
 	api.CurrentProject = config.DefaultProject
 	api.CurrentEnvironment = config.DefaultEnvironment
-	api.SetToken(config.ApiToken)
+	api.SetToken(config.APIToken)
 	api.SetServer(config.Server)
 }

@@ -6,16 +6,17 @@ import (
 	"fmt"
 	"time"
 
-	ldapi "github.com/launchdarkly/api-client-go"
-	"github.com/launchdarkly/ldc/api"
-
 	"github.com/olekukonko/tablewriter"
 	ishell "gopkg.in/abiosoft/ishell.v2"
+
+	ldapi "github.com/launchdarkly/api-client-go"
+
+	"github.com/launchdarkly/ldc/api"
 )
 
 var flagCompleter = makeCompleter(emptyOnError(listFlagKeys))
 
-func AddFlagCommands(shell *ishell.Shell) {
+func addFlagCommands(shell *ishell.Shell) {
 
 	root := &ishell.Cmd{
 		Name:    "flags",
@@ -119,31 +120,29 @@ func getFlagArg(c *ishell.Context, pos int) *ldapi.FeatureFlag {
 		c.Err(err)
 		return nil
 	}
-	var foundFlag *ldapi.FeatureFlag
-	var flagKey string
+
 	if len(c.Args) > pos {
-		flagKey = c.Args[pos]
+		flagKey := c.Args[pos]
 		for _, flag := range flags {
 			if flag.Key == flagKey {
-				copy := flag
-				foundFlag = &copy
+				return &flag // nolint:scopelint // ok because we return here
 			}
 		}
-	} else {
-		// TODO LOL
-		options, err := listFlagKeys()
-		if err != nil {
-			c.Err(err)
-			return nil
-		}
-		choice := c.MultiChoice(options, "Choose a flag: ")
-		if choice < 0 {
-			return nil
-		}
-		foundFlag = &flags[choice]
-		flagKey = foundFlag.Key
+		return nil
 	}
-	return foundFlag
+
+	options, err := listFlagKeys()
+	if err != nil {
+		c.Err(err)
+		return nil
+	}
+
+	choice := c.MultiChoice(options, "Choose a flag: ")
+	if choice < 0 {
+		return nil
+	}
+
+	return &flags[choice]
 }
 
 func listFlags() ([]ldapi.FeatureFlag, error) {
@@ -191,14 +190,15 @@ func showFlags(c *ishell.Context) {
 	}
 	table.Render()
 	if buf.Len() > 1000 {
-		c.ShowPaged(buf.String())
+
+		c.Err(c.ShowPaged(buf.String()))
 	} else {
 		c.Print(buf.String())
 	}
 }
 
 func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
-	if renderJson(c) {
+	if renderJSON(c) {
 		data, err := json.MarshalIndent(flag, "", "  ")
 		if err != nil {
 			c.Err(err)
@@ -260,7 +260,7 @@ func createToggleFlag(c *ishell.Context) {
 		c.Err(err)
 		return
 	}
-	if renderJson(c) {
+	if renderJSON(c) {
 		renderFlag(c, flag)
 	}
 }

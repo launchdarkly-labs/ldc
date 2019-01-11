@@ -11,7 +11,7 @@ import (
 	"github.com/launchdarkly/ldc/api"
 )
 
-func AddAuditLogCommands(shell *ishell.Shell) {
+func addAuditLogCommands(shell *ishell.Shell) {
 	root := &ishell.Cmd{
 		Name: "log",
 		Help: "search audit log entries",
@@ -38,7 +38,7 @@ func AddAuditLogCommands(shell *ishell.Shell) {
 			}
 			table.Render()
 			if buf.Len() > 1000 {
-				c.ShowPaged(buf.String())
+				c.Err(c.ShowPaged(buf.String()))
 			} else {
 				c.Println(buf.String())
 			}
