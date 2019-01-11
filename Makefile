@@ -26,6 +26,6 @@ release-snapshot:
 	$(RELEASE_CMD) --skip-publish --skip-validate --snapshot
 
 integration-test:
-    echo "Not implemented yet"
+	echo "Not implemented yet"
 
-.PHONY: docker init lint publish release test test-centos test-debian test-docker test-all test-docker-conf test-docker-standalone
+.PHONY: docker init lint publish-snapshot release release-snapshot integration-test
