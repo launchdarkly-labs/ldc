@@ -62,6 +62,7 @@ func makeCompleter(fetch func() []string) func(args []string) []string {
 	}
 }
 
+// nonFinalCompleter adds a space after completion options which allows autocomplete to work with mutliple commands
 func nonFinalCompleter(completer func(args []string) []string) func(args []string) []string {
 	return func(args []string) (completions []string) {
 		original := completer(args)
