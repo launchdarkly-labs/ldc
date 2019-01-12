@@ -112,6 +112,7 @@ type Goal struct {
 	Version int `json:"_version,omitempty"`
 }
 
+// ExperimentResults holds the results of an experiment for a particular goal/flag combo
 type ExperimentResults struct {
 	Change          float64   `json:"change"`
 	ConfidenceScore float64   `json:"confidenceScore"`
@@ -120,6 +121,7 @@ type ExperimentResults struct {
 	Experiment      Variation `json:"experiment"`
 }
 
+// Variation holds data about each result
 type Variation struct {
 	Conversions        int     `json:"conversions"`
 	Impressions        int     `json:"impressions"`

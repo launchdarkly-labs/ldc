@@ -135,7 +135,7 @@ func showGoal(c *ishell.Context) {
 	} else {
 		key := c.Args[0]
 		var err error
-		goal, err = getGoalByNameOrId(key)
+		goal, err = getGoalByNameOrID(key)
 		if err != nil {
 			c.Err(err)
 			return
@@ -148,7 +148,7 @@ func showGoal(c *ishell.Context) {
 	renderGoal(c, goal)
 }
 
-func getGoalByNameOrId(key string) (*goalapi.Goal, error) {
+func getGoalByNameOrID(key string) (*goalapi.Goal, error) {
 	goals, _ := goalapi.GetGoals()
 	for _, g := range goals {
 		if g.ID == key || g.Name == key {
@@ -211,7 +211,6 @@ func showExperimentResults(c *ishell.Context) {
 	}
 
 	renderExperimentResults(c, results)
-	return
 }
 
 func renderGoal(c *ishell.Context, goal *goalapi.Goal) {
