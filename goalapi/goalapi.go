@@ -112,6 +112,22 @@ type Goal struct {
 	Version int `json:"_version,omitempty"`
 }
 
+type ExperimentResults struct {
+	Change          float64   `json:"change"`
+	ConfidenceScore float64   `json:"confidenceScore"`
+	ZScore          float64   `json:"z_score"`
+	Control         Variation `json:"control"`
+	Experiment      Variation `json:"experiment"`
+}
+
+type Variation struct {
+	Conversions        int     `json:"conversions"`
+	Impressions        int     `json:"impressions"`
+	ConversionRate     float64 `json:"conversionRate"`
+	StandardError      float64 `json:"standardError"`
+	ConfidenceInterval float64 `json:"confidenceInterval"`
+}
+
 // GetGoal returns the goal with a given id
 func GetGoal(id string) (*Goal, error) {
 	req, _ := http.NewRequest(http.MethodGet, makeURL("/api/goals/%s", id), nil)
@@ -137,6 +153,34 @@ func GetGoal(id string) (*Goal, error) {
 		return nil, err
 	}
 	return &goal, nil
+}
+
+// GetExperimentResults returns the experiment results for a specific flag and goal
+func GetExperimentResults(goalID string, flagKey string) (*ExperimentResults, error) {
+	req, _ := http.NewRequest(http.MethodGet, makeURL("/api/features/%s/goals/%s/results", flagKey, goalID), nil)
+	sdkKey, err := getCurrentSdkKey()
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", sdkKey)
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := api.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	_ = resp.Body.Close()
+
+	var experimentResults ExperimentResults
+	if err := json.Unmarshal(body, &experimentResults); err != nil {
+		return nil, err
+	}
+	return &experimentResults, nil
 }
 
 func getCurrentSdkKey() (string, error) {

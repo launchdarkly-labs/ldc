@@ -46,10 +46,18 @@ func addGoalCommands(shell *ishell.Shell) {
 
 	root.AddCmd(&ishell.Cmd{
 		Name:      "show",
-		Help:      "show a goal's details",
+		Help:      "show a goal's details [goal]",
 		Completer: goalCompleter,
-		Func:      showGoals,
+		Func:      showGoal,
 	})
+
+	root.AddCmd(&ishell.Cmd{
+		Name:      "results",
+		Help:      "show a goal's experiment results for a flag [show <goal name> <flag key>]",
+		Completer: detachGoalCompleter,
+		Func:      showExperimentResults,
+	})
+
 	root.AddCmd(&ishell.Cmd{
 		Name:      "attach",
 		Help:      "attach to flag",
@@ -120,6 +128,37 @@ func listGoalNames() ([]string, error) {
 	return keys, nil
 }
 
+func showGoal(c *ishell.Context) {
+	var goal *goalapi.Goal
+	if len(c.Args) == 0 {
+		goal = getGoalArg(c)
+	} else {
+		key := c.Args[0]
+		var err error
+		goal, err = getGoalByNameOrId(key)
+		if err != nil {
+			c.Err(err)
+			return
+		}
+	}
+	if goal == nil {
+		c.Println("Unknown goal")
+		return
+	}
+	renderGoal(c, goal)
+}
+
+func getGoalByNameOrId(key string) (*goalapi.Goal, error) {
+	goals, _ := goalapi.GetGoals()
+	for _, g := range goals {
+		if g.ID == key || g.Name == key {
+			goal, err := goalapi.GetGoal(g.ID)
+			return goal, err
+		}
+	}
+	return nil, nil
+}
+
 func showGoals(c *ishell.Context) {
 	if len(c.Args) > 0 {
 		goal := getGoalArg(c)
@@ -150,6 +189,29 @@ func showGoals(c *ishell.Context) {
 	} else {
 		c.Print(buf.String())
 	}
+}
+
+func showExperimentResults(c *ishell.Context) {
+	goal := getGoalArg(c)
+	if goal == nil {
+		c.Println("Unknown goal")
+		return
+	}
+
+	flag := getFlagArg(c, 1)
+	if flag == nil {
+		c.Println("Unknown flag")
+		return
+	}
+
+	results, err := goalapi.GetExperimentResults(goal.ID, flag.Key)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	renderExperimentResults(c, results)
+	return
 }
 
 func renderGoal(c *ishell.Context, goal *goalapi.Goal) {
@@ -347,4 +409,38 @@ func detachGoalCompleter(args []string) (completions []string) {
 	}
 
 	return completions
+}
+
+func renderExperimentResults(c *ishell.Context, results *goalapi.ExperimentResults) {
+	if renderJSON(c) {
+		data, err := json.MarshalIndent(results, "", " ")
+		if err != nil {
+			c.Err(err)
+			return
+		}
+		c.Println(string(data))
+		return
+	}
+
+	buf := bytes.NewBufferString("")
+	table := tablewriter.NewWriter(buf)
+	table.SetHeader([]string{"Change", "Confidence", "Z Score"})
+	table.Append([]string{floatToStr(results.Change), floatToStr(results.ConfidenceScore), floatToStr(results.ZScore)})
+	table.Render()
+	c.Print(buf.String())
+
+	buf = bytes.NewBufferString("")
+	table = tablewriter.NewWriter(buf)
+	table.SetHeader([]string{"Field", "Control", "Experiment"})
+	table.Append([]string{"Conversions", strconv.Itoa(results.Control.Conversions), strconv.Itoa(results.Experiment.Conversions)})
+	table.Append([]string{"Impressions", strconv.Itoa(results.Control.Impressions), strconv.Itoa(results.Experiment.Impressions)})
+	table.Append([]string{"Conversion Rate", floatToStr(results.Control.ConversionRate), floatToStr(results.Experiment.ConversionRate)})
+	table.Append([]string{"Confidence Interval", floatToStr(results.Control.ConfidenceInterval), floatToStr(results.Experiment.ConfidenceInterval)})
+	table.Append([]string{"Standard Error", floatToStr(results.Control.StandardError), floatToStr(results.Experiment.StandardError)})
+	table.Render()
+	c.Print(buf.String())
+}
+
+func floatToStr(f float64) string {
+	return fmt.Sprintf("%f", f)
 }
