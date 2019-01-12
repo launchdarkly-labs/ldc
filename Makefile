@@ -17,7 +17,7 @@ publish:
 	$(RELEASE_CMD)
 
 publish-snapshot:
-	$(RELEASE_CMD)
+	$(RELEASE_CMD) --snapshot
 
 release:
 	$(RELEASE_CMD) --skip-publish --skip-validate

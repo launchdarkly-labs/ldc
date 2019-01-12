@@ -85,7 +85,7 @@ jobs:
       - run:
           name: Releasing and publishing
           command: |
-            make release
+            make publish
       - store_artifacts:
           path: dist/
 
