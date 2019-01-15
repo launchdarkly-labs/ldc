@@ -215,12 +215,7 @@ func showExperimentResults(c *ishell.Context) {
 
 func renderGoal(c *ishell.Context, goal *goalapi.Goal) {
 	if renderJSON(c) {
-		data, err := json.MarshalIndent(goal, "", " ")
-		if err != nil {
-			c.Err(err)
-			return
-		}
-		c.Println(string(data))
+		printJSON(c, goal)
 		return
 	}
 

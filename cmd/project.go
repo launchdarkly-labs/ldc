@@ -2,14 +2,13 @@ package cmd
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/olekukonko/tablewriter"
-	ishell "gopkg.in/abiosoft/ishell.v2"
+	"gopkg.in/abiosoft/ishell.v2"
 
-	ldapi "github.com/launchdarkly/api-client-go"
+	"github.com/launchdarkly/api-client-go"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -19,18 +18,18 @@ func addProjectCommands(shell *ishell.Shell) {
 		Name:    "projects",
 		Aliases: []string{"project"},
 		Help:    "list and operate on projects",
-		Func:    listProjectsTable,
+		Func:    showProjects,
 	}
 	root.AddCmd(&ishell.Cmd{
 		Name: "list",
 		Help: "list projects",
-		Func: listProjectsTable,
+		Func: showProjects,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:      "show",
 		Help:      "show project",
 		Completer: projectCompleter,
-		Func:      listProjectsTable,
+		Func:      showProject,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:    "create",
@@ -82,12 +81,34 @@ func listProjectKeys() ([]string, error) {
 	return keys, nil
 }
 
-func listProjectsTable(c *ishell.Context) {
+func showProject(c *ishell.Context) {
+	proj := getProjectArg(c)
+
+	if proj == nil {
+		c.Println("Project not found")
+		return
+	}
+
+	if renderJSON(c) {
+		printJSON(c, proj)
+		return
+	}
+
+	showEnvironmentsForProject(c, proj.Key)
+}
+
+func showProjects(c *ishell.Context) {
 	projects, err := listProjects()
 	if err != nil {
 		c.Err(err)
 		return
 	}
+
+	if renderJSON(c) {
+		printJSON(c, projects)
+		return
+	}
+
 	buf := bytes.Buffer{}
 	table := tablewriter.NewWriter(&buf)
 	table.SetHeader([]string{"Key", "Name"})
@@ -187,12 +208,7 @@ func createProject(c *ishell.Context) {
 	}
 	switchToProject(c, &project)
 	if renderJSON(c) {
-		data, err := json.MarshalIndent(project, "", "  ")
-		if err != nil {
-			c.Err(err)
-			return
-		}
-		c.Println(string(data))
+		printJSON(c, project)
 		return
 	}
 }

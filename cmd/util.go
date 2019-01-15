@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -215,4 +216,14 @@ func renderPagedTable(c *ishell.Context, buf bytes.Buffer) {
 	} else {
 		c.Print(buf.String())
 	}
+}
+
+func printJSON(c *ishell.Context, data interface{}) {
+	bytes, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	c.Print(string(bytes) + "\n")
 }

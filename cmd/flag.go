@@ -212,12 +212,7 @@ func showFlags(c *ishell.Context) {
 
 func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
 	if renderJSON(c) {
-		data, err := json.MarshalIndent(flag, "", "  ")
-		if err != nil {
-			c.Err(err)
-			return
-		}
-		c.Println(string(data))
+		printJSON(c, flag)
 		return
 	}
 

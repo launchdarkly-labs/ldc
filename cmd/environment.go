@@ -28,9 +28,9 @@ func addEnvironmentCommands(shell *ishell.Shell) {
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:      "show",
-		Help:      "list environments",
+		Help:      "show environment",
 		Completer: environmentCompleter,
-		Func:      showEnvironments,
+		Func:      showEnvironment,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:    "create",
@@ -107,47 +107,74 @@ func listEnvironmentKeys() ([]string, error) {
 }
 
 func showEnvironments(c *ishell.Context) {
+	showEnvironmentsForProject(c, api.CurrentProject)
+}
+
+func showEnvironmentsForProject(c *ishell.Context, projectKey string) {
+	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, projectKey)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	if renderJSON(c) {
+		printJSON(c, project.Environments)
+		return
+	}
+
+	c.Println("Environments for " + project.Name)
+	buf := bytes.Buffer{}
+	table := tablewriter.NewWriter(&buf)
+	table.SetHeader([]string{"Key", "Name"})
+	for _, environment := range project.Environments {
+		table.Append([]string{environment.Key, environment.Name})
+	}
+	table.SetRowLine(true)
+	table.Render()
+	if buf.Len() > 1000 {
+		c.Err(c.ShowPaged(buf.String()))
+	} else {
+		c.Print(buf.String())
+	}
+}
+
+func showEnvironment(c *ishell.Context) {
+	env := getEnvironmentArg(c)
+
+	if env == nil {
+		c.Println("Environment not found")
+		return
+	}
+
+	if renderJSON(c) {
+		printJSON(c, env)
+		return
+	}
+
 	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, api.CurrentProject)
 	if err != nil {
 		c.Err(err)
 		return
 	}
-	if len(c.Args) > 0 {
-		environmentKey := c.Args[0]
-		buf := bytes.NewBufferString("")
-		table := tablewriter.NewWriter(buf)
-		for _, environment := range project.Environments {
-			if environmentKey == environment.Key {
-				table.SetHeader([]string{"Field", "Value"})
-				table.Append([]string{"Key", environment.Key})
-				table.Append([]string{"Name", environment.Name})
-				table.Append([]string{"SDK Key", environment.ApiKey})
-				table.Append([]string{"Mobile Key", environment.MobileKey})
-				table.Append([]string{"Default TTL", fmt.Sprintf("%.0f", environment.DefaultTtl)})
-				table.Append([]string{"Color", environment.Color})
-				table.Append([]string{"Secure Mode", fmt.Sprintf("%t", environment.SecureMode)})
-				table.Append([]string{"Default Track Events", fmt.Sprintf("%t", environment.DefaultTrackEvents)})
-				table.SetAlignment(tablewriter.ALIGN_LEFT)
-				table.Render()
-				c.Print(buf.String())
-				return
-			}
-		}
-		c.Println("Environment not found")
-	} else {
-		c.Println("Environments for " + project.Name)
-		buf := bytes.Buffer{}
-		table := tablewriter.NewWriter(&buf)
-		table.SetHeader([]string{"Key", "Name"})
-		for _, environment := range project.Environments {
-			table.Append([]string{environment.Key, environment.Name})
-		}
-		table.SetRowLine(true)
-		table.Render()
-		if buf.Len() > 1000 {
-			c.Err(c.ShowPaged(buf.String()))
-		} else {
+
+	environmentKey := c.Args[0]
+	buf := bytes.NewBufferString("")
+	table := tablewriter.NewWriter(buf)
+	for _, environment := range project.Environments {
+		if environmentKey == environment.Key {
+			table.SetHeader([]string{"Field", "Value"})
+			table.Append([]string{"Key", environment.Key})
+			table.Append([]string{"Name", environment.Name})
+			table.Append([]string{"SDK Key", environment.ApiKey})
+			table.Append([]string{"Mobile Key", environment.MobileKey})
+			table.Append([]string{"Default TTL", fmt.Sprintf("%.0f", environment.DefaultTtl)})
+			table.Append([]string{"Color", environment.Color})
+			table.Append([]string{"Secure Mode", fmt.Sprintf("%t", environment.SecureMode)})
+			table.Append([]string{"Default Track Events", fmt.Sprintf("%t", environment.DefaultTrackEvents)})
+			table.SetAlignment(tablewriter.ALIGN_LEFT)
+			table.Render()
 			c.Print(buf.String())
+			return
 		}
 	}
 }
