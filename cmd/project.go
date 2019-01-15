@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"github.com/olekukonko/tablewriter"
-	"gopkg.in/abiosoft/ishell.v2"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
-	"github.com/launchdarkly/api-client-go"
+	ldapi "github.com/launchdarkly/api-client-go"
 
 	"github.com/launchdarkly/ldc/api"
 )
