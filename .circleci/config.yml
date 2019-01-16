@@ -21,7 +21,7 @@ defaults:
       - run: go get -u $COMMON_GO_PACKAGES
       - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
       - run: dep ensure -dry-run
-      - run: sudo apt-get python-pip
+      - run: sudo apt-get install python-pip
       - run: sudo pip install pre-commit
       - run: pre-commit install
       - run: pre-commit run -a
