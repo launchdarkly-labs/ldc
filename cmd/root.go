@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mitchellh/go-homedir"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"gopkg.in/abiosoft/ishell.v2"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )

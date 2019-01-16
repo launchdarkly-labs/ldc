@@ -1,4 +1,4 @@
-# LaunchDarkly CLI Client/Shell
+# LDC - LaunchDarkly CLI/Console
 
 [![CircleCI](https://circleci.com/gh/launchdarkly/ldc.svg?style=svg)](https://circleci.com/gh/launchdarkly/ldc)
 
