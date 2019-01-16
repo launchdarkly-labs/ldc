@@ -106,7 +106,7 @@ workflows:
       - publish:
           filters:
             tags:
-              only: /\d+\.\d+\.\d+(-.*)?/
+              only: /v\d+\.\d+\.\d+(-.*)?/
             branches:
               ignore: /.*/
           requires:
