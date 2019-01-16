@@ -263,7 +263,7 @@ func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
 			for i := range flag.Variations {
 				for variationNum, v := range envStatus.Fallthrough_.Rollout.Variations {
 					if variationNum == i {
-						rollout = append(rollout, fmt.Sprintf("%2.2f%%", float64(v.Weight)/100.0))
+						rollout = append(rollout, fmt.Sprintf("%2.2f%%", float64(v.Weight)/1000.0))
 						continue NextVariation
 					}
 				}
