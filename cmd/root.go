@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	ishell "gopkg.in/abiosoft/ishell.v2"
+	"gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -296,6 +296,14 @@ func createShell(interactive bool) *ishell.Shell {
 	shell.AddCmd(&ishell.Cmd{
 		Name: "shell",
 		Help: "Run shell",
+	})
+
+	shell.AddCmd(&ishell.Cmd{
+		Name: "version",
+		Help: "Show version",
+		Func: func(c *ishell.Context) {
+			c.Println(Version)
+		},
 	})
 
 	addFlagCommands(shell)

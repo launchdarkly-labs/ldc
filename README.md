@@ -1,5 +1,9 @@
 # LaunchDarkly CLI Client/Shell
 
+[![CircleCI](https://circleci.com/gh/launchdarkly/ldc.svg?style=svg)](https://circleci.com/gh/launchdarkly/ldc)
+
+[![GolangCI](https://golangci.com/badges/github.com/golangci/golangci-lint.svg)](https://golangci.com)
+
 *This is BETA software until version 1.0 and the interface may change.*
  
 ## Configuration
