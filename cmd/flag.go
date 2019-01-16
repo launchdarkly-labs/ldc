@@ -83,6 +83,12 @@ func addFlagCommands(shell *ishell.Shell) {
 		Func:      rollout,
 	})
 	root.AddCmd(&ishell.Cmd{
+		Name:      "fallthrough",
+		Help:      "set the fallthrough value for a flag.  fallthrough <index> ...",
+		Completer: fallthruCompleter,
+		Func:      fallthru,
+	})
+	root.AddCmd(&ishell.Cmd{
 		Name:      "edit",
 		Help:      "edit a flag's json in a text editor",
 		Completer: flagCompleter,
@@ -424,18 +430,149 @@ func rollout(c *ishell.Context) {
 		variations = append(variations, ldapi.WeightedVariation{Variation: int32(i), Weight: weight})
 	}
 
-	patchComment.Patch = []ldapi.PatchOperation{{
-		Op:   "remove",
-		Path: fmt.Sprintf("/environments/%s/fallthrough/variation", api.CurrentEnvironment),
-	}, {
+	originalFlag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, flag.Key, nil)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	var patches []ldapi.PatchOperation
+	originalFallthrough := originalFlag.Environments[api.CurrentEnvironment].Fallthrough_
+	if originalFallthrough.Rollout == nil {
+		patches = append(patches, ldapi.PatchOperation{
+			Op:   "remove",
+			Path: fmt.Sprintf("/environments/%s/fallthrough/variation", api.CurrentEnvironment),
+		})
+	}
+
+	patches = append(patches, ldapi.PatchOperation{
 		Op:    "replace",
 		Path:  fmt.Sprintf("/environments/%s/fallthrough/rollout", api.CurrentEnvironment),
 		Value: interfacePtr(ldapi.Rollout{Variations: variations}),
-	}}
-	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	})
+
+	patchComment.Patch = patches
+
+	patchedFlag, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
 	if err != nil {
 		c.Err(err)
+		return
 	}
+
+	final := patchedFlag.Environments[api.CurrentEnvironment].Fallthrough_.Rollout
+
+	if renderJSON(c) {
+		printJSON(c, final)
+		return
+	}
+
+	buf := bytes.Buffer{}
+	table := tablewriter.NewWriter(&buf)
+	table.SetHeader([]string{"Index", "Weight"})
+	for _, v := range final.Variations {
+		table.Append([]string{strconv.Itoa(int(v.Variation)), fmt.Sprintf("%2.2f%%", float64(v.Weight)/1000.0)})
+	}
+	table.Render()
+	c.Print(buf.String())
+}
+
+func fallthru(c *ishell.Context) {
+	flag := getFlagArg(c, 0)
+	var patchComment ldapi.PatchComment
+
+	if flag == nil {
+		c.Err(errors.New("flag not found"))
+		return
+	}
+
+	originalFlag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, flag.Key, nil)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	var value int
+	if len(c.Args) > 1 {
+		parts := strings.SplitAfterN(c.Args[1], ":", 1)
+		value, err = strconv.Atoi(parts[0])
+		if err != nil {
+			c.Err(err)
+		}
+	} else {
+		var options []string
+		for _, v := range originalFlag.Variations {
+			name := v.Name
+			if name == "" {
+				bytes, err := json.Marshal(v.Value)
+				if err != nil {
+					c.Err(err)
+					return
+				}
+				name = string(bytes)
+			}
+			options = append(options, name)
+		}
+		value = c.MultiChoice(options, "Choose a fallthrough variation: ")
+		if value < 0 {
+			c.Err(errors.New("unknown choice"))
+			return
+		}
+	}
+
+	var patches []ldapi.PatchOperation
+	originalFallthrough := originalFlag.Environments[api.CurrentEnvironment].Fallthrough_
+	if originalFallthrough.Rollout != nil {
+		patches = append(patches, ldapi.PatchOperation{
+			Op:   "remove",
+			Path: fmt.Sprintf("/environments/%s/fallthrough/rollout", api.CurrentEnvironment),
+		})
+	}
+
+	patches = append(patches, ldapi.PatchOperation{
+		Op:    "replace",
+		Path:  fmt.Sprintf("/environments/%s/fallthrough/variation", api.CurrentEnvironment),
+		Value: interfacePtr(value),
+	})
+
+	patchComment.Patch = patches
+
+	patchedFlag, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	final := patchedFlag.Environments[api.CurrentEnvironment].Fallthrough_.Variation
+	printJSON(c, final)
+}
+
+func fallthruCompleter(args []string) (completions []string) {
+	if len(args) == 0 {
+		return nonFinalCompleter(flagCompleter)(args)
+	}
+
+	if len(args) > 2 {
+		return nil
+	}
+
+	currentFlag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, args[0], nil)
+	if err != nil {
+		return nil
+	}
+
+	for i, v := range currentFlag.Variations {
+		name := v.Name
+		if name == "" {
+			bytes, err := json.Marshal(v.Value)
+			if err != nil {
+				continue
+			}
+			name = string(bytes)
+		}
+		completions = append(completions, fmt.Sprintf(`%d:"%s"`, i, name))
+	}
+
+	return completions
 }
 
 func off(c *ishell.Context) {
