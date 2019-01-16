@@ -103,6 +103,7 @@ func init() {
 	pflag.String("environment", "", "Environment key")
 	pflag.String("config", "", "Configuration to use")
 	pflag.Bool("json", false, "Return json")
+	pflag.Bool("debug", false, "Enable debugging")
 	pflag.Parse()
 
 	viper.AutomaticEnv()
@@ -163,6 +164,10 @@ func preRunCmd(cmd *cobra.Command, args []string) {
 		if env := viper.GetString("environment"); env != "" {
 			api.CurrentEnvironment = env
 		}
+	}
+
+	if viper.IsSet("debug") {
+		api.Debug = true
 	}
 }
 

@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/olekukonko/tablewriter"
-	ishell "gopkg.in/abiosoft/ishell.v2"
+	"gopkg.in/abiosoft/ishell.v2"
 
-	ldapi "github.com/launchdarkly/api-client-go"
+	"github.com/launchdarkly/api-client-go"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -75,6 +75,12 @@ func addFlagCommands(shell *ishell.Shell) {
 		Help:      "turn a boolean flag off",
 		Completer: flagCompleter,
 		Func:      off,
+	})
+	root.AddCmd(&ishell.Cmd{
+		Name:      "rollout",
+		Help:      "set the rollout for a flag.  rollout [variation 0 %] [variation 1 %] ...",
+		Completer: flagCompleter,
+		Func:      rollout,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:      "edit",
@@ -242,9 +248,26 @@ func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
 
 	buf = bytes.Buffer{}
 	table = tablewriter.NewWriter(&buf)
-	table.SetHeader([]string{"Environment", "On", "Last Modified"})
+	table.SetHeader([]string{"Environment", "On", "Last Modified", "Rollout"})
 	for envKey, envStatus := range flag.Environments {
-		table.Append([]string{envKey, fmt.Sprintf("%v", envStatus.On), time.Unix(envStatus.LastModified/1000, 0).Format("2006/01/02 15:04")})
+		row := []string{envKey, fmt.Sprintf("%v", envStatus.On), time.Unix(envStatus.LastModified/1000, 0).Format("2006/01/02 15:04")}
+		if envStatus.Fallthrough_ != nil && envStatus.Fallthrough_.Rollout != nil {
+			var rollout []string
+		NextVariation:
+			for i := range flag.Variations {
+				for variationNum, v := range envStatus.Fallthrough_.Rollout.Variations {
+					if variationNum == i {
+						rollout = append(rollout, fmt.Sprintf("%2.2%%", v.Weight/100.0))
+						continue NextVariation
+					}
+				}
+				rollout = append(rollout, "-")
+			}
+			row = append(row, strings.Join(rollout, "/"))
+		} else {
+			row = append(row, "")
+		}
+		table.Append(row)
 	}
 	table.Render()
 	c.Println(buf.String())
@@ -317,7 +340,11 @@ func addTag(c *ishell.Context) {
 		Path:  "/tags/-",
 		Value: interfacePtr(tag),
 	}}
-	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	if err != nil {
+		c.Err(err)
+	}
+
 }
 
 func removeTag(c *ishell.Context) {
@@ -337,7 +364,11 @@ func removeTag(c *ishell.Context) {
 		Op:   "remove",
 		Path: fmt.Sprintf("/tags/%d", index),
 	}}
-	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	if err != nil {
+		c.Err(err)
+	}
+
 }
 
 func on(c *ishell.Context) {
@@ -348,7 +379,63 @@ func on(c *ishell.Context) {
 		Path:  fmt.Sprintf("/environments/%s/on", api.CurrentEnvironment),
 		Value: interfacePtr(true),
 	}}
-	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	if err != nil {
+		c.Err(err)
+	}
+}
+
+func rollout(c *ishell.Context) {
+	flag := getFlagArg(c, 0)
+	var patchComment ldapi.PatchComment
+
+	if flag == nil {
+		c.Err(errors.New("flag not found"))
+		return
+	}
+
+	var variations []ldapi.WeightedVariation
+	for i, v := range flag.Variations {
+		var percent float64
+		var err error
+		if len(c.Args) > i+1 {
+			percent, err = strconv.ParseFloat(c.Args[i+1], 64)
+			if err != nil {
+				c.Err(err)
+				return
+			}
+		} else {
+			for {
+				c.Printf("Enter rollout %% for variation %d (%v): ", i, *v.Value)
+				value, err := c.ReadLineErr()
+				if err != nil {
+					c.Err(err)
+					return
+				}
+				percent, err = strconv.ParseFloat(value, 64)
+				if err != nil {
+					c.Println("Value must be number.  Try again.")
+					continue
+				}
+				break
+			}
+		}
+		weight := int32(1000.0 * percent)
+		variations = append(variations, ldapi.WeightedVariation{Variation: int32(i), Weight: weight})
+	}
+
+	patchComment.Patch = []ldapi.PatchOperation{{
+		Op:   "remove",
+		Path: fmt.Sprintf("/environments/%s/fallthrough/variation", api.CurrentEnvironment),
+	}, {
+		Op:    "replace",
+		Path:  fmt.Sprintf("/environments/%s/fallthrough/rollout", api.CurrentEnvironment),
+		Value: interfacePtr(ldapi.Rollout{Variations: variations}),
+	}}
+	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	if err != nil {
+		c.Err(err)
+	}
 }
 
 func off(c *ishell.Context) {
@@ -359,7 +446,10 @@ func off(c *ishell.Context) {
 		Path:  fmt.Sprintf("/environments/%s/on", api.CurrentEnvironment),
 		Value: interfacePtr(false),
 	}}
-	_, _, _ = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	if err != nil {
+		c.Err(err)
+	}
 }
 
 // add/remove tag, toggle on/off

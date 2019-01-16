@@ -1,10 +1,14 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 
-	ldapi "github.com/launchdarkly/api-client-go"
+	"github.com/launchdarkly/api-client-go"
 )
 
 // Auth is the authorization context used by the ali client
@@ -33,13 +37,32 @@ var HTTPClient *http.Client
 // UserAgent is the current user agent for this version of the command
 var UserAgent string
 
+// Debug body
+
+var Debug bool
+
 type loggingTransport struct{}
 
 func (lt *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if Debug {
+		if req.Body != nil {
+			body, _ := ioutil.ReadAll(req.Body)
+			fmt.Printf("body: %s\n", string(body))
+			req.GetBody = func() (io.ReadCloser, error) {
+				return ioutil.NopCloser(bytes.NewBuffer(body)), nil
+			}
+		}
+	}
+
 	resp, err := http.DefaultTransport.RoundTrip(req)
 
-	// TODO this is bad, don't do this
-	//resp.Body = ioutil.NopCloser(io.TeeReader(resp.Body, os.Stdout))
+	if Debug && req.Body != nil && err != nil {
+		body, err := ioutil.ReadAll(req.Body)
+		if err == nil {
+			fmt.Printf("response: %s\n", string(body))
+			resp.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+		}
+	}
 	return resp, err
 }
 
