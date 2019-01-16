@@ -166,9 +166,7 @@ func preRunCmd(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if viper.IsSet("debug") {
-		api.Debug = true
-	}
+	api.Debug = viper.GetBool("debug")
 }
 
 func addTokenCommands(shell *ishell.Shell) {
