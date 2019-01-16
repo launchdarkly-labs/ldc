@@ -298,6 +298,14 @@ func createShell(interactive bool) *ishell.Shell {
 		Help: "Run shell",
 	})
 
+	shell.AddCmd(&ishell.Cmd{
+		Name: "version",
+		Help: "Show version",
+		Func: func(c *ishell.Context) {
+			c.Println(Version)
+		},
+	})
+
 	addFlagCommands(shell)
 	addProjectCommands(shell)
 	addEnvironmentCommands(shell)
