@@ -6,7 +6,7 @@ test: lint
 	go test ./...
 
 lint:
-    pre-commit run -a --verbose golangci-lint
+	pre-commit run -a --verbose golangci-lint
 
 init:
 	pre-commit install
