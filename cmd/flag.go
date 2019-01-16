@@ -78,8 +78,8 @@ func addFlagCommands(shell *ishell.Shell) {
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:      "rollout",
-		Help:      "set the rollout for a flag.  rollout [variation 0 %] [variation 1 %] ...",
-		Completer: flagCompleter,
+		Help:      "set the rollout for a flag.  rollout [N:][name:][variation 0 %] [N:][name:][variation 1 %] ...",
+		Completer: rolloutCompleter,
 		Func:      rollout,
 	})
 	root.AddCmd(&ishell.Cmd{
@@ -402,10 +402,19 @@ func rollout(c *ishell.Context) {
 
 	var variations []ldapi.WeightedVariation
 	for i, v := range flag.Variations {
+		index := i
 		var percent float64
 		var err error
 		if len(c.Args) > i+1 {
-			percent, err = strconv.ParseFloat(c.Args[i+1], 64)
+			parts := strings.Split(c.Args[i+1], ":")
+			if len(parts) > 1 {
+				index, err = strconv.Atoi(parts[0])
+				if err != nil {
+					c.Err(err)
+					return
+				}
+			}
+			percent, err = strconv.ParseFloat(parts[len(parts)-1], 64)
 			if err != nil {
 				c.Err(err)
 				return
@@ -427,7 +436,7 @@ func rollout(c *ishell.Context) {
 			}
 		}
 		weight := int32(1000.0 * percent)
-		variations = append(variations, ldapi.WeightedVariation{Variation: int32(i), Weight: weight})
+		variations = append(variations, ldapi.WeightedVariation{Variation: int32(index), Weight: weight})
 	}
 
 	originalFlag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, flag.Key, nil)
@@ -476,6 +485,32 @@ func rollout(c *ishell.Context) {
 	c.Print(buf.String())
 }
 
+func rolloutCompleter(args []string) (completions []string) {
+	if len(args) == 0 {
+		return nonFinalCompleter(flagCompleter)(args)
+	}
+
+	currentFlag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, args[0], nil)
+	if err != nil {
+		return nil
+	}
+
+	for i, v := range currentFlag.Variations {
+		name := v.Name
+		if name == "" {
+
+			bytes, err := json.Marshal(v.Value)
+			if err != nil {
+				continue
+			}
+			name = string(bytes)
+		}
+		completions = append(completions, fmt.Sprintf(`%d:"%s":`, i, name))
+	}
+
+	return completions
+}
+
 func fallthru(c *ishell.Context) {
 	flag := getFlagArg(c, 0)
 	var patchComment ldapi.PatchComment
@@ -493,7 +528,7 @@ func fallthru(c *ishell.Context) {
 
 	var value int
 	if len(c.Args) > 1 {
-		parts := strings.SplitAfterN(c.Args[1], ":", 1)
+		parts := strings.SplitN(c.Args[1], ":", 2)
 		value, err = strconv.Atoi(parts[0])
 		if err != nil {
 			c.Err(err)
