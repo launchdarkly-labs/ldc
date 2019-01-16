@@ -6,10 +6,10 @@ test: lint
 	go test ./...
 
 lint:
-	./bin/golangci-lint run ./...
+	pre-commit run -a --verbose golangci-lint
 
 init:
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s $(GOLANGCI_VERSION)
+	pre-commit install
 
 RELEASE_CMD=curl -sL https://git.io/goreleaser | bash -s -- --rm-dist
 
