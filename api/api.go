@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/launchdarkly/api-client-go"
+	ldapi "github.com/launchdarkly/api-client-go"
 )
 
 // Auth is the authorization context used by the ali client
@@ -37,8 +37,7 @@ var HTTPClient *http.Client
 // UserAgent is the current user agent for this version of the command
 var UserAgent string
 
-// Debug body
-
+// Debug turns on debugging of http requests
 var Debug bool
 
 type loggingTransport struct{}

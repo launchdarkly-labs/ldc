@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/olekukonko/tablewriter"
-	"gopkg.in/abiosoft/ishell.v2"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
-	"github.com/launchdarkly/api-client-go"
+	ldapi "github.com/launchdarkly/api-client-go"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -257,7 +257,7 @@ func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
 			for i := range flag.Variations {
 				for variationNum, v := range envStatus.Fallthrough_.Rollout.Variations {
 					if variationNum == i {
-						rollout = append(rollout, fmt.Sprintf("%2.2%%", v.Weight/100.0))
+						rollout = append(rollout, fmt.Sprintf("%2.2f%%", v.Weight/100.0))
 						continue NextVariation
 					}
 				}
