@@ -632,7 +632,23 @@ func createFlag(c *ishell.Context) {
 }
 
 func deleteFlag(c *ishell.Context) {
-	c.Println("Not implemented")
+	flag := getFlagArg(c, 0)
+	if flag == nil {
+		c.Err(errors.New("flag-not-found"))
+		return
+	}
+
+	if !confirmDelete(c, "flag key", flag.Key) {
+		return
+	}
+
+	_, err := api.Client.FeatureFlagsApi.DeleteFeatureFlag(api.Auth, api.CurrentProject, flag.Key)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	c.Println("flag was deleted")
 }
 
 func interfacePtr(i interface{}) *interface{} {
