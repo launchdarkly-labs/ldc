@@ -57,7 +57,8 @@ func (lt *loggingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 
 	if Debug && req.Body != nil && err != nil {
 		body, err := ioutil.ReadAll(req.Body)
-		if err == nil {
+		if err == nil && body != nil {
+			_ = resp.Body.Close()
 			fmt.Printf("response: %s\n", string(body))
 			resp.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 		}
