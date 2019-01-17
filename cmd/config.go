@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"github.com/mitchellh/go-homedir"
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 
-	"gopkg.in/abiosoft/ishell.v2"
+	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	"github.com/launchdarkly/ldc/api"
 )
@@ -48,6 +49,11 @@ func initConfig() {
 		configViper.SetConfigName("ldc")
 	}
 
+	reloadConfigFile()
+}
+
+func reloadConfigFile() {
+	configFile = nil
 	if err := configViper.ReadInConfig(); err == nil {
 		if err := configViper.Unmarshal(&configFile); err != nil {
 			fmt.Fprintf(os.Stderr, "Unable to parse config file: %s", err)
@@ -71,6 +77,13 @@ func addConfigCommands(shell *ishell.Shell) {
 		Name: "add",
 		Help: "add config <config name> <api token> <project> <environment> [server url]",
 		Func: addConfig,
+	})
+	root.AddCmd(&ishell.Cmd{
+		Name:      "rename",
+		Aliases:   []string{"rn", "mv"},
+		Help:      "rename config <config name> <new name>",
+		Completer: configCompleter,
+		Func:      renameConfig,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:      "edit",
@@ -166,12 +179,12 @@ func setConfig(name string, config config) {
 
 func updateConfig(c *ishell.Context) {
 	if len(c.Args) > 1 && len(c.Args) < 4 {
-		c.Err(tooFewArgs)
+		c.Err(errTooFewArgs)
 		return
 	}
 
 	if len(c.Args) > 5 {
-		c.Err(tooManyArgs)
+		c.Err(errTooManyArgs)
 		return
 	}
 
@@ -231,7 +244,11 @@ func updateConfig(c *ishell.Context) {
 	}
 
 	configViper.Set(name, newConfig)
-	configViper.WriteConfig()
+	if err := configViper.WriteConfig(); err != nil {
+		c.Err(err)
+		return
+	}
+	reloadConfigFile()
 	c.Println("configuration updated")
 }
 
@@ -241,31 +258,41 @@ func removeConfig(c *ishell.Context) {
 		c.Err(errors.New("config not found"))
 		return
 	}
+	if !confirmDelete(c, "config", name) {
+		return
+	}
 	configViper.Set(name, nil)
-	configViper.WriteConfig()
+	if err := configViper.WriteConfig(); err != nil {
+		c.Err(err)
+		return
+	}
+	reloadConfigFile()
 	c.Println("configuration removed")
 }
 
 func addConfig(c *ishell.Context) {
 	if len(c.Args) > 1 && len(c.Args) < 4 {
-		c.Err(tooFewArgs)
+		c.Err(errTooFewArgs)
 		return
 	}
 
 	if len(c.Args) > 5 {
-		c.Err(tooManyArgs)
+		c.Err(errTooManyArgs)
 		return
 	}
 
-	name, config := getConfigArg(c)
-
-	if config == nil {
-		c.Println("Config not found. Settings unchanged.")
+	var name string
+	if len(c.Args) > 0 {
+		name = c.Args[0]
+	} else {
+		name = pickNewConfigName(c)
+	}
+	if strings.TrimSpace(name) == "" {
+		c.Err(errors.New("invalid name"))
 		return
 	}
 
-	newConfig := config
-
+	newConfig := config{}
 	if len(c.Args) <= 1 {
 		c.Printf("API Token: ")
 		val, err := c.ReadLineErr()
@@ -310,6 +337,75 @@ func addConfig(c *ishell.Context) {
 	}
 
 	configViper.Set(name, newConfig)
-	configViper.WriteConfig()
+	if err := configViper.WriteConfig(); err != nil {
+		c.Err(err)
+		return
+	}
+	reloadConfigFile()
 	c.Println("configuration added")
+}
+
+func pickNewConfigName(c *ishell.Context) string {
+	var name string
+	for {
+		c.Printf(`New config name: `)
+		val, err := c.ReadLineErr()
+		if err != nil {
+			c.Err(err)
+			return ""
+		}
+		name = strings.TrimSpace(val)
+		if name == "" {
+			c.Err(errors.New("must not be blank"))
+			continue
+		}
+		if _, exists := configFile[name]; exists {
+			c.Err(errors.New("config already exists"))
+			continue
+		}
+		break
+	}
+	return name
+}
+
+func renameConfig(c *ishell.Context) {
+	if len(c.Args) > 2 {
+		c.Err(errTooFewArgs)
+		return
+	}
+
+	name, cfg := getConfigArg(c)
+
+	if cfg == nil {
+		c.Err(errNotFound)
+		return
+	}
+
+	var newName string
+	if len(c.Args) > 1 {
+		newName = c.Args[1]
+	} else {
+		newName = pickNewConfigName(c)
+	}
+	if strings.TrimSpace(name) == "" {
+		c.Err(errors.New("invalid name"))
+		return
+	}
+
+	if name == newName {
+		return
+	}
+
+	if _, exists := configFile[newName]; exists {
+		c.Err(errors.New("target already exists"))
+		return
+	}
+	configViper.Set(newName, cfg)
+	configViper.Set(name, nil)
+	if err := configViper.WriteConfig(); err != nil {
+		c.Err(err)
+		return
+	}
+	reloadConfigFile()
+	c.Println("configuration renamed")
 }

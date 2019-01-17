@@ -22,8 +22,9 @@ const (
 	cJSON        = "json"
 )
 
-var tooManyArgs = errors.New("too many arguments")
-var tooFewArgs = errors.New("too many arguments")
+var errTooManyArgs = errors.New("too many arguments")
+var errTooFewArgs = errors.New("too few arguments")
+var errNotFound = errors.New("not found")
 
 func confirmDelete(c *ishell.Context, name string, expectedValue string) bool {
 	if !isInteractive(c) {
