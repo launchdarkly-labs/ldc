@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -20,6 +21,10 @@ const (
 	cEDITOR      = "editor"
 	cJSON        = "json"
 )
+
+var errTooManyArgs = errors.New("too many arguments")
+var errTooFewArgs = errors.New("too few arguments")
+var errNotFound = errors.New("not found")
 
 func confirmDelete(c *ishell.Context, name string, expectedValue string) bool {
 	if !isInteractive(c) {
@@ -226,4 +231,11 @@ func printJSON(c *ishell.Context, data interface{}) {
 	}
 
 	c.Print(string(bytes) + "\n")
+}
+
+func ifNotBlank(s string, defaultValue string) string {
+	if strings.TrimSpace(s) == "" {
+		return defaultValue
+	}
+	return s
 }
