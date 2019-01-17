@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -47,49 +45,6 @@ func Execute() {
 	if err := cmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
-	}
-}
-
-type config struct {
-	// APIToken is the authorization token
-	APIToken string
-	// Server is the api url (.../v2)
-	Server string
-	// DefaultProject is the initial project to use
-	DefaultProject string
-	// DefaultEnvironment is the initial environment to use
-	DefaultEnvironment string
-}
-
-var configFile map[string]config
-
-var configViper *viper.Viper
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	configViper = viper.New()
-	if cfgFile != "" {
-		// Use config file from the flag.
-		configViper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		configViper.AddConfigPath(home)
-		configViper.AddConfigPath(filepath.Join(home, ".config"))
-		configViper.AddConfigPath(".")
-		configViper.SetConfigName("ldc")
-	}
-
-	if err := configViper.ReadInConfig(); err == nil {
-		if err := configViper.Unmarshal(&configFile); err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to parse config file: %s", err)
-			os.Exit(1)
-		}
 	}
 }
 
@@ -286,14 +241,6 @@ func createShell(interactive bool) *ishell.Shell {
 	})
 
 	shell.AddCmd(&ishell.Cmd{
-		Name:      "config",
-		Aliases:   []string{"c"},
-		Help:      "Change configuration",
-		Completer: configCompleter,
-		Func:      selectConfig,
-	})
-
-	shell.AddCmd(&ishell.Cmd{
 		Name: "shell",
 		Help: "Run shell",
 	})
@@ -306,6 +253,7 @@ func createShell(interactive bool) *ishell.Shell {
 		},
 	})
 
+	addConfigCommands(shell)
 	addFlagCommands(shell)
 	addProjectCommands(shell)
 	addEnvironmentCommands(shell)

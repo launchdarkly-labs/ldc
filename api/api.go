@@ -7,6 +7,8 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
+	"os"
 
 	ldapi "github.com/launchdarkly/api-client-go"
 )
@@ -17,7 +19,7 @@ var Auth context.Context
 // Client is the api client
 var Client *ldapi.APIClient
 
-const defaultServer = "https://app.launchdarkly.com/api/v2"
+const defaultServer = "https://app.launchdarkly.com"
 
 // CurrentToken is the api token
 var CurrentToken string
@@ -86,13 +88,20 @@ func init() {
 
 // SetServer sets the server url to use
 func SetServer(newServer string) {
+	url, err := url.Parse(newServer)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Unable to parser server: %s", err)
+		return
+	}
 	CurrentServer = newServer
+	url.Path = "/api/v2"
+	url.RawPath = ""
 	Client = ldapi.NewAPIClient(&ldapi.Configuration{
-		BasePath: newServer,
+		BasePath: url.String(),
 		HTTPClient: &http.Client{
 			Transport: &loggingTransport{},
 		},
-		UserAgent: "ldc/0.0.1/go",
+		UserAgent: UserAgent,
 	})
 }
 
