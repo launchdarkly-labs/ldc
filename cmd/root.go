@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/launchdarkly/ldc/cmd/internal/path"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -14,7 +16,13 @@ import (
 	"github.com/launchdarkly/ldc/api"
 )
 
-var currentConfig string
+var currentConfig *string
+
+var currentServer string
+var currentToken string
+var currentProject string
+var currentEnvironment string
+
 var cfgFile string
 
 // rootCmd represents the base command when called without any subcommands
@@ -102,22 +110,22 @@ func preRunCmd(cmd *cobra.Command, args []string) {
 
 	if viper.IsSet("token") {
 		if token := viper.GetString("token"); token != "" {
-			api.SetToken(token)
+			currentToken = token
 		}
 	}
 	if viper.IsSet("server") {
 		if server := viper.GetString("server"); server != "" {
-			api.SetServer(server)
+			currentServer = server
 		}
 	}
 	if viper.IsSet("project") {
 		if project := viper.GetString("project"); project != "" {
-			api.CurrentProject = project
+			currentProject = project
 		}
 	}
 	if viper.IsSet("environment") {
 		if env := viper.GetString("environment"); env != "" {
-			api.CurrentEnvironment = env
+			currentEnvironment = env
 		}
 	}
 
@@ -130,7 +138,7 @@ func addTokenCommands(shell *ishell.Shell) {
 		Help: "set api key",
 		Func: func(c *ishell.Context) {
 			if len(c.Args) > 1 {
-				c.Err(errors.New("Only one argument, the api key, is allowed"))
+				c.Err(errors.New("only one argument, the api key, is allowed"))
 				return
 			}
 
@@ -142,7 +150,7 @@ func addTokenCommands(shell *ishell.Shell) {
 				token = c.ReadPassword()
 			}
 
-			api.SetToken(token)
+			currentToken = token
 			printCurrentToken(c)
 		},
 	}
@@ -153,9 +161,9 @@ func createShell(interactive bool) *ishell.Shell {
 	shell := ishell.New()
 	shell.SetHomeHistoryPath(".ldc_history")
 
-	prompt := fmt.Sprintf("%s/%s> ", api.CurrentProject, api.CurrentEnvironment)
-	if currentConfig != "" {
-		prompt = fmt.Sprintf(`[%s] %s`, currentConfig, prompt)
+	prompt := fmt.Sprintf("%s/%s> ", currentProject, currentEnvironment)
+	if currentConfig != nil {
+		prompt = fmt.Sprintf(`[%s] %s`, *currentConfig, prompt)
 	}
 	shell.SetPrompt(prompt)
 
@@ -176,67 +184,65 @@ func createShell(interactive bool) *ishell.Shell {
 	shell.CustomCompleter(customCompleter{shell, nil})
 
 	shell.AddCmd(&ishell.Cmd{
-		// TODO wanted / syntax but oh well
-		Name:    "switch",
-		Help:    "Switch to a given project and environment: switch project [environment]",
-		Aliases: []string{"select"},
-		Completer: func(args []string) []string {
-			switch len(args) {
-			case 0:
-				// projects
-				return projectCompleter(args)
-			case 1:
-				// env
-				completer := makeCompleter(emptyOnError(func() ([]string, error) { return listEnvironmentKeysForProject(args[0]) }))
-				return completer(args[1:])
-			}
-			return []string{}
-		},
+		Name:      "switch",
+		Help:      "Switch to a given project and environment: switch [//config][/project]<environment>",
+		Aliases:   []string{"s", "select"},
+		Completer: environmentCompleter,
 		Func: func(c *ishell.Context) {
-			// TODO switch to proj or environment (or saved API key?)
-			switch len(c.Args) {
-			case 0:
+			if len(c.Args) > 1 {
 				return
-			case 1:
-				if strings.Contains(c.Args[0], "/") {
-					c.Args = strings.Split(c.Args[0], "/")
-					// TODO copy paste
-					_, _, err := api.Client.ProjectsApi.GetProject(api.Auth, c.Args[0])
-					if err != nil {
-						c.Printf("No project %s\n", c.Args[0])
-						return
-					}
-					_, _, err = api.Client.EnvironmentsApi.GetEnvironment(api.Auth, c.Args[0], c.Args[1])
-					if err != nil {
-						c.Printf("No environment %s\n", c.Args[1])
-						return
-					}
-					api.CurrentProject = c.Args[0]
-					api.CurrentEnvironment = c.Args[1]
-					c.Printf("Switched to project %s environment %s\n", api.CurrentProject, api.CurrentEnvironment)
-					return
-				}
-				project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, c.Args[0])
-				if err != nil {
-					c.Printf("No project %s\n", c.Args[0])
-					return
-				}
-				switchToProject(c, &project)
-			case 2:
-				_, _, err := api.Client.ProjectsApi.GetProject(api.Auth, c.Args[0])
-				if err != nil {
-					c.Printf("No project %s\n", c.Args[0])
-					return
-				}
-				_, _, err = api.Client.EnvironmentsApi.GetEnvironment(api.Auth, c.Args[0], c.Args[1])
-				if err != nil {
-					c.Printf("No environment %s\n", c.Args[1])
-					return
-				}
-				api.CurrentProject = c.Args[0]
-				api.CurrentEnvironment = c.Args[1]
-				c.Printf("Switched to project %s environment %s\n", api.CurrentProject, api.CurrentEnvironment)
 			}
+			p := path.ResourcePath(firstOrEmpty(c.Args))
+			var dest string
+			switch {
+			case !p.IsAbs():
+				auth := api.GetAuthCtx(getToken(currentConfig))
+				client, err := api.GetClient(getServer(currentConfig))
+				if err != nil {
+					c.Err(err)
+					return
+				}
+				_, _, err = client.EnvironmentsApi.GetEnvironment(auth, currentProject, p.Keys()[0])
+				if err != nil {
+					c.Printf("No environment \"%s\"\n", p.Keys()[0])
+					return
+				}
+				currentEnvironment = c.Args[0]
+				dest += fmt.Sprintf("environment %s", currentEnvironment)
+			case p.Depth() == 2:
+				configKey := p.Config()
+				if configKey == nil {
+					configKey = currentConfig
+				}
+				auth := api.GetAuthCtx(getToken(configKey))
+				client, err := api.GetClient(getServer(configKey))
+				if err != nil {
+					c.Err(err)
+					return
+				}
+				if p.Config() != nil {
+					dest = fmt.Sprintf("config %s", *p.Config())
+				}
+
+				p := perProjectPath{p}
+				_, _, err = client.ProjectsApi.GetProject(auth, p.Project())
+				if err != nil {
+					c.Printf("No project '%s'\n", p.Project())
+					return
+				}
+				_, _, err = client.EnvironmentsApi.GetEnvironment(auth, p.Project(), p.Key())
+				if err != nil {
+					c.Printf("No environment '%s'\n", p.Key())
+					return
+				}
+				currentProject = p.Project()
+				currentEnvironment = p.Key()
+				dest += fmt.Sprintf("project %s, environment %s", currentProject, currentEnvironment)
+			default:
+				c.Printf("'%s' is not a valid environment\n", p)
+				return
+			}
+			c.Printf("Switched to '%s'\n", dest)
 		},
 	})
 
@@ -300,15 +306,15 @@ func runShellCmd(cmd *cobra.Command, args []string) {
 }
 
 func printCurrentToken(c *ishell.Context) {
-	c.Printf("Current API Key: ends in '%s'\n", last4(api.CurrentToken))
+	c.Printf("Current API Key: ends in '%s'\n", last4(getToken(currentConfig)))
 }
 
 func printCurrentSettings(c *ishell.Context) {
-	c.Println("Current Config: " + noneIfEmpty(currentConfig))
-	c.Println("Current Server: " + api.CurrentServer)
+	c.Println("Current Config: " + noneIfNil(currentConfig))
+	c.Println("Current Server: " + currentServer)
 	printCurrentToken(c)
-	c.Println("Current Project: " + api.CurrentProject)
-	c.Println("Current Environment: " + api.CurrentEnvironment)
+	c.Println("Current Project: " + currentProject)
+	c.Println("Current Environment: " + currentEnvironment)
 }
 
 func last4(s string) string {
@@ -355,9 +361,9 @@ func containsString(haystack []string, needle string) bool {
 	return false
 }
 
-func noneIfEmpty(s string) string {
-	if s == "" {
+func noneIfNil(s *string) string {
+	if s == nil {
 		return "<none>"
 	}
-	return s
+	return *s
 }

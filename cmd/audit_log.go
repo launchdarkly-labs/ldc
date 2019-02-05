@@ -24,7 +24,13 @@ func addAuditLogCommands(shell *ishell.Shell) {
 				//options["after"] = 1518163200000
 				//options["before"] = time.Now().UnixNano() / int64(time.Millisecond)
 			}
-			entries, _, err := api.Client.AuditLogApi.GetAuditLogEntries(api.Auth, options)
+			auth := api.GetAuthCtx(getToken(nil))
+			client, err := api.GetClient(getServer(currentConfig))
+			if err != nil {
+				c.Err(err)
+				return
+			}
+			entries, _, err := client.AuditLogApi.GetAuditLogEntries(auth, options)
 			if err != nil {
 				c.Err(err)
 				return

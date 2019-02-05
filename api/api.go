@@ -8,30 +8,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 
 	ldapi "github.com/launchdarkly/api-client-go"
 )
-
-// Auth is the authorization context used by the ali client
-var Auth context.Context
-
-// Client is the api client
-var Client *ldapi.APIClient
-
-const defaultServer = "https://app.launchdarkly.com"
-
-// CurrentToken is the api token
-var CurrentToken string
-
-// CurrentServer is the url of the api to use
-var CurrentServer string
-
-// CurrentProject is the project to use
-var CurrentProject = "default"
-
-// CurrentEnvironment is the environment to use
-var CurrentEnvironment = "production"
 
 // HTTPClient is an underlying http client with logging transport
 var HTTPClient *http.Client
@@ -75,40 +54,26 @@ func Initialize(userAgent string) {
 	HTTPClient = &http.Client{
 		Transport: &loggingTransport{},
 	}
-
-	Client = ldapi.NewAPIClient(&ldapi.Configuration{
-		HTTPClient: HTTPClient,
-		UserAgent:  UserAgent,
-	})
 }
 
-func init() {
-	SetServer(defaultServer)
-}
-
-// SetServer sets the server url to use
-func SetServer(newServer string) {
-	url, err := url.Parse(newServer)
+// GetClient returns a client for the given server
+func GetClient(server string) (*ldapi.APIClient, error) {
+	url, err := url.Parse(server)
 	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Unable to parser server: %s", err)
-		return
+		return nil, fmt.Errorf("unable to parser server: %s", err)
 	}
-	CurrentServer = newServer
 	url.Path = "/api/v2"
 	url.RawPath = ""
-	Client = ldapi.NewAPIClient(&ldapi.Configuration{
-		BasePath: url.String(),
-		HTTPClient: &http.Client{
-			Transport: &loggingTransport{},
-		},
-		UserAgent: UserAgent,
-	})
+	return ldapi.NewAPIClient(&ldapi.Configuration{
+		BasePath:   url.String(),
+		HTTPClient: HTTPClient,
+		UserAgent:  UserAgent,
+	}), nil
 }
 
-// SetToken sets the authorization token
-func SetToken(newToken string) {
-	CurrentToken = newToken
-	Auth = context.WithValue(context.Background(), ldapi.ContextAPIKey, ldapi.APIKey{
-		Key: newToken,
+// GetAuthCtx returns a context that can be used to access the api
+func GetAuthCtx(token string) context.Context {
+	return context.WithValue(context.Background(), ldapi.ContextAPIKey, ldapi.APIKey{
+		Key: token,
 	})
 }

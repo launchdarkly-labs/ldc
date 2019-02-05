@@ -18,7 +18,7 @@ linters:
 
 linter-settings:
   goimports:
-    local-prefixes: github.com/launchdarkly/ldc
+    local-prefixes: github.com/launchdarkly,gopkg.in/launchdarkly
 
 issues:
   exclude:
