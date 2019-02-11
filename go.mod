@@ -1,0 +1,34 @@
+module github.com/launchdarkly/ldc
+
+require (
+	github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db
+	github.com/fatih/color v1.7.0
+	github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
+	github.com/fsnotify/fsnotify v1.4.7
+	github.com/golang/protobuf v1.2.0
+	github.com/hashicorp/hcl v1.0.0
+	github.com/inconshreveable/mousetrap v1.0.0
+	github.com/launchdarkly/api-client-go v0.0.0-20190111200008-3cb23d7484ad
+	github.com/magiconair/properties v1.8.0
+	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
+	github.com/mattn/go-colorable v0.0.9
+	github.com/mattn/go-isatty v0.0.4
+	github.com/mattn/go-runewidth v0.0.4
+	github.com/mitchellh/go-homedir v1.0.0
+	github.com/mitchellh/mapstructure v1.1.2
+	github.com/olekukonko/tablewriter v0.0.1
+	github.com/pelletier/go-toml v1.2.0
+	github.com/spf13/afero v1.2.0
+	github.com/spf13/cast v1.3.0
+	github.com/spf13/cobra v0.0.3
+	github.com/spf13/jwalterweatherman v1.0.0
+	github.com/spf13/pflag v1.0.3
+	github.com/spf13/viper v1.3.1
+	golang.org/x/net v0.0.0-20190108225652-1e06a53dbb7e
+	golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890
+	golang.org/x/sys v0.0.0-20190109145017-48ac38b7c8cb
+	golang.org/x/text v0.3.0
+	google.golang.org/appengine v1.4.0
+	gopkg.in/abiosoft/ishell.v2 v2.0.0
+	gopkg.in/yaml.v2 v2.2.2
+)
