@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -130,14 +131,36 @@ type Variation struct {
 	ConfidenceInterval float64 `json:"confidenceInterval"`
 }
 
-// GetGoal returns the goal with a given id
-func GetGoal(id string) (*Goal, error) {
-	req, _ := http.NewRequest(http.MethodGet, makeURL("/api/goals/%s", id), nil)
-	sdkKey, err := getCurrentSdkKey()
+// Context is used to access an environment
+type Context struct {
+	host  string
+	token string
+}
+
+// NewContext creates a context for accessing an environment
+func NewContext(host, token string) Context {
+	return Context{
+		host:  host,
+		token: token,
+	}
+}
+
+func newRequest(ctx Context, method, path string, body io.Reader) (*http.Request, error) {
+	u, _ := url.Parse(ctx.host)
+	u.Path = path
+	u.RawPath = ""
+	req, err := http.NewRequest(method, u.String(), body)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("Authorization", sdkKey)
+	req.Header.Add("Authorization", ctx.token)
+	req.Header.Add("Content-Type", "application/json")
+	return req, nil
+}
+
+// GetGoal returns the goal with a given id
+func GetGoal(ctx Context, id string) (*Goal, error) {
+	req, _ := newRequest(ctx, http.MethodGet, fmt.Sprintf("/api/goals/%s", id), nil)
 
 	resp, err := api.HTTPClient.Do(req)
 	if err != nil {
@@ -158,14 +181,8 @@ func GetGoal(id string) (*Goal, error) {
 }
 
 // GetExperimentResults returns the experiment results for a specific flag and goal
-func GetExperimentResults(goalID string, flagKey string) (*ExperimentResults, error) {
-	req, _ := http.NewRequest(http.MethodGet, makeURL("/api/features/%s/goals/%s/results", flagKey, goalID), nil)
-	sdkKey, err := getCurrentSdkKey()
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Authorization", sdkKey)
-	req.Header.Add("Content-Type", "application/json")
+func GetExperimentResults(ctx Context, goalID string, flagKey string) (*ExperimentResults, error) {
+	req, _ := newRequest(ctx, http.MethodGet, fmt.Sprintf("/api/features/%s/goals/%s/results", flagKey, goalID), nil)
 
 	resp, err := api.HTTPClient.Do(req)
 	if err != nil {
@@ -185,22 +202,9 @@ func GetExperimentResults(goalID string, flagKey string) (*ExperimentResults, er
 	return &experimentResults, nil
 }
 
-func getCurrentSdkKey() (string, error) {
-	env, _, err := api.Client.EnvironmentsApi.GetEnvironment(api.Auth, api.CurrentProject, api.CurrentEnvironment)
-	if err != nil {
-		return "", err
-	}
-	return env.ApiKey, nil
-}
-
 // GetGoals returns all goals for the current environment
-func GetGoals() ([]Goal, error) {
-	req, _ := http.NewRequest(http.MethodGet, makeURL("/api/goals"), nil)
-	sdkKey, err := getCurrentSdkKey()
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Authorization", sdkKey)
+func GetGoals(ctx Context) ([]Goal, error) {
+	req, _ := newRequest(ctx, http.MethodGet, fmt.Sprintf("/api/goals"), nil)
 
 	resp, err := api.HTTPClient.Do(req)
 	if err != nil {
@@ -222,22 +226,16 @@ func GetGoals() ([]Goal, error) {
 	}
 
 	if err := json.Unmarshal(body, &respData); err != nil {
-		return nil, fmt.Errorf("Unable to unmarshal: %s: %s", body, err)
+		return nil, fmt.Errorf("unable to unmarshal: %s: %s", body, err)
 	}
 
 	return respData.Items, nil
 }
 
 // CreateGoal creates a goal in the current environment
-func CreateGoal(goal Goal) (*Goal, error) {
+func CreateGoal(ctx Context, goal Goal) (*Goal, error) {
 	body, _ := json.Marshal(goal)
-	req, _ := http.NewRequest(http.MethodPost, makeURL("/api/goals"), bytes.NewBuffer(body))
-	sdkKey, err := getCurrentSdkKey()
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Authorization", sdkKey)
-	req.Header.Add("Content-Type", "application/json")
+	req, _ := newRequest(ctx, http.MethodPost, fmt.Sprintf("/api/goals"), bytes.NewBuffer(body))
 
 	resp, err := api.HTTPClient.Do(req)
 	if err != nil {
@@ -262,13 +260,8 @@ func CreateGoal(goal Goal) (*Goal, error) {
 }
 
 // DeleteGoal deletes a goal in the current environment
-func DeleteGoal(id string) error {
-	req, _ := http.NewRequest(http.MethodDelete, makeURL("/api/goals/%s", id), nil)
-	sdkKey, err := getCurrentSdkKey()
-	if err != nil {
-		return err
-	}
-	req.Header.Add("Authorization", sdkKey)
+func DeleteGoal(ctx Context, id string) error {
+	req, _ := newRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/goals/%s", id), nil)
 
 	resp, err := api.HTTPClient.Do(req)
 	if err != nil {
@@ -283,14 +276,9 @@ func DeleteGoal(id string) error {
 }
 
 // PatchGoal patches a goal in the current environment
-func PatchGoal(id string, patchComment ldapi.PatchComment) (*Goal, error) {
+func PatchGoal(ctx Context, id string, patchComment ldapi.PatchComment) (*Goal, error) {
 	body, _ := json.Marshal(patchComment)
-	req, _ := http.NewRequest(http.MethodPatch, makeURL("/api/goals/%s", id), bytes.NewBuffer(body))
-	sdkKey, err := getCurrentSdkKey()
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Authorization", sdkKey)
+	req, _ := newRequest(ctx, http.MethodPatch, fmt.Sprintf("/api/goals/%s", id), bytes.NewBuffer(body))
 
 	resp, err := api.HTTPClient.Do(req)
 	if err != nil {
@@ -312,11 +300,4 @@ func PatchGoal(id string, patchComment ldapi.PatchComment) (*Goal, error) {
 		return nil, err
 	}
 	return &newGoal, nil
-}
-
-func makeURL(format string, args ...interface{}) string {
-	u, _ := url.Parse(api.CurrentServer)
-	u.Path = fmt.Sprintf(format, args...)
-	u.RawPath = ""
-	return u.String()
 }

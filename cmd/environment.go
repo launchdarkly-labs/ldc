@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/launchdarkly/ldc/cmd/internal/path"
+
 	"github.com/olekukonko/tablewriter"
 	ishell "gopkg.in/abiosoft/ishell.v2"
 
@@ -45,58 +47,25 @@ func addEnvironmentCommands(shell *ishell.Shell) {
 		Completer: environmentCompleter,
 		Func:      deleteEnvironment,
 	})
-	root.AddCmd(&ishell.Cmd{
-		Name:      "switch",
-		Aliases:   []string{"select", "s", "sel"},
-		Help:      "switch the current environment",
-		Completer: environmentCompleter,
-		Func: func(c *ishell.Context) {
-			foundEnvironment := getEnvironmentArg(c)
-			if foundEnvironment == nil {
-				c.Printf("Environment %s does not exist in the current project\n", foundEnvironment.Key)
-				return
-			}
-			c.Printf("Switching to environment %s\n", foundEnvironment.Key)
-			api.CurrentEnvironment = foundEnvironment.Key
-			c.SetPrompt(api.CurrentProject + "/" + api.CurrentEnvironment + "> ")
-		},
-	})
 
 	shell.AddCmd(root)
 }
 
-func listEnvironmentsForProject(projectKey string) ([]ldapi.Environment, error) {
-	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, projectKey)
+func listEnvironments(configKey *string, projKey string) ([]ldapi.Environment, error) {
+	client, err := api.GetClient(getServer(configKey))
+	if err != nil {
+		return nil, err
+	}
+	auth := api.GetAuthCtx(getToken(configKey))
+	project, _, err := client.ProjectsApi.GetProject(auth, projKey)
 	if err != nil {
 		return nil, err
 	}
 	return project.Environments, nil
 }
 
-func listEnvironments() ([]ldapi.Environment, error) {
-	// TODO other project options
-	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, api.CurrentProject)
-	if err != nil {
-		return nil, err
-	}
-	return project.Environments, nil
-}
-
-func listEnvironmentKeysForProject(project string) ([]string, error) {
-	var keys []string
-	environments, err := listEnvironmentsForProject(project)
-	if err != nil {
-		return nil, err
-	}
-	for _, environment := range environments {
-		keys = append(keys, environment.Key)
-	}
-	return keys, nil
-}
-
-func listEnvironmentKeys() ([]string, error) {
-	var keys []string
-	environments, err := listEnvironments()
+func listEnvironmentKeys(configKey *string, project string) (keys []string, err error) {
+	environments, err := listEnvironments(configKey, project)
 	if err != nil {
 		return nil, err
 	}
@@ -107,11 +76,17 @@ func listEnvironmentKeys() ([]string, error) {
 }
 
 func showEnvironments(c *ishell.Context) {
-	showEnvironmentsForProject(c, api.CurrentProject)
+	showEnvironmentsForProject(c, projPath{path.NewAbsPath(currentConfig, currentProject)})
 }
 
-func showEnvironmentsForProject(c *ishell.Context, projectKey string) {
-	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, projectKey)
+func showEnvironmentsForProject(c *ishell.Context, projPath projPath) {
+	client, err := api.GetClient(getServer(projPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(projPath.Config()))
+	project, _, err := client.ProjectsApi.GetProject(auth, projPath.Key())
 	if err != nil {
 		c.Err(err)
 		return
@@ -122,7 +97,7 @@ func showEnvironmentsForProject(c *ishell.Context, projectKey string) {
 		return
 	}
 
-	c.Println("Environments for " + project.Name)
+	c.Println("Environments for " + projPath.String())
 	buf := bytes.Buffer{}
 	table := tablewriter.NewWriter(&buf)
 	table.SetHeader([]string{"Key", "Name"})
@@ -139,7 +114,7 @@ func showEnvironmentsForProject(c *ishell.Context, projectKey string) {
 }
 
 func showEnvironment(c *ishell.Context) {
-	env := getEnvironmentArg(c)
+	envPath, env := getEnvironmentArg(c)
 
 	if env == nil {
 		c.Println("Environment not found")
@@ -151,7 +126,14 @@ func showEnvironment(c *ishell.Context) {
 		return
 	}
 
-	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, api.CurrentProject)
+	client, err := api.GetClient(getServer(envPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(envPath.Config()))
+
+	project, _, err := client.ProjectsApi.GetProject(auth, currentProject)
 	if err != nil {
 		c.Err(err)
 		return
@@ -179,53 +161,89 @@ func showEnvironment(c *ishell.Context) {
 	}
 }
 
-var environmentCompleter = makeCompleter(emptyOnError(listEnvironmentKeys))
+func environmentCompleter(args []string) (completions []string) {
+	if len(args) > 1 {
+		return nil
+	}
 
-func getEnvironmentArg(c *ishell.Context) *ldapi.Environment {
-	environments, err := listEnvironments()
+	completer := path.NewCompleter(getDefaultPath, configLister, projLister, envLister)
+	completions, _ = completer.GetCompletions(firstOrEmpty(args))
+	return completions
+}
+
+func getEnvironmentArg(c *ishell.Context) (perProjectPath, *ldapi.Environment) {
+	var pathArg path.ResourcePath
+	if len(c.Args) > 0 {
+		pathArg = path.ResourcePath(c.Args[0])
+	} else {
+		env, err := chooseEnvironmentFromCurrentProject(c)
+		if err != nil {
+			c.Err(err)
+			return perProjectPath{}, nil
+		}
+		pathArg = path.NewAbsPath(currentConfig, currentProject, env.Key)
+	}
+
+	realPath, err := realEnvPath(pathArg)
 	if err != nil {
 		c.Err(err)
-		return nil
+		return perProjectPath{}, nil
+	}
+	return realPath, nil
+}
+
+func chooseEnvironmentFromCurrentProject(c *ishell.Context) (*ldapi.Environment, error) {
+	environments, err := listEnvironments(currentConfig, currentProject)
+	if err != nil {
+		return nil, err
 	}
 	var environmentKey string
 	if len(c.Args) > 0 {
 		environmentKey = c.Args[0]
 		for _, environment := range environments {
 			if environment.Key == environmentKey {
-				return &environment // nolint:scopelint // ok because we return
+				return &environment, nil // nolint:scopelint // ok because we return
 			}
 		}
+		return nil, errors.New("unknown environment")
 	}
 
-	options, err := listEnvironmentKeys()
-	if err != nil {
-		c.Err(err)
-		return nil
-	}
+	options := keysForEnvironments(environments)
 	choice := c.MultiChoice(options, "Choose an environment")
 	if choice < 0 {
-		return nil
+		return nil, nil
 	}
-	return &environments[choice]
+	return &environments[choice], nil
 }
 
 func createEnvironment(c *ishell.Context) {
 	var key, name string
+	var p perProjectPath
 	switch len(c.Args) {
 	case 0:
 		c.Err(errors.New("please supply at least a key for the new environment"))
 		return
-	case 1:
-		key = c.Args[0]
-		name = key
-	case 2:
-		key = c.Args[0]
-		name = c.Args[1]
+	case 1, 2:
+		p = perProjectPath{path.ResourcePath(c.Args[0])}
+		if p.Depth() != 2 {
+			c.Err(errors.New("invalid path"))
+		}
+		if len(c.Args) > 1 {
+			name = c.Args[1]
+		} else {
+			name = p.Key()
+		}
 	default:
 		c.Err(errors.New(`expected arguments are "key [name]""`))
 		return
 	}
-	_, err := api.Client.EnvironmentsApi.PostEnvironment(api.Auth, api.CurrentProject, ldapi.EnvironmentPost{Key: key, Name: name, Color: "000000"})
+	client, err := api.GetClient(getServer(p.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(p.Config()))
+	_, err = client.EnvironmentsApi.PostEnvironment(auth, p.Project(), ldapi.EnvironmentPost{Key: key, Name: name, Color: "000000"})
 	if err != nil {
 		c.Err(err)
 		return
@@ -234,21 +252,45 @@ func createEnvironment(c *ishell.Context) {
 		c.Printf("Created environment %s\n", key)
 		c.Printf("Switching to environment %s\n", key)
 	}
-	api.CurrentEnvironment = key
+	currentEnvironment = key
 }
 
 func deleteEnvironment(c *ishell.Context) {
-	environment := getEnvironmentArg(c)
+	envPath, environment := getEnvironmentArg(c)
 	if environment == nil {
 		return
 	}
 	if !confirmDelete(c, "environment key", environment.Key) {
 		return
 	}
-	_, err := api.Client.EnvironmentsApi.DeleteEnvironment(api.Auth, api.CurrentProject, environment.Key)
+	client, err := api.GetClient(getServer(envPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(envPath.Config()))
+	_, err = client.EnvironmentsApi.DeleteEnvironment(auth, envPath.Project(), environment.Key)
 	if err != nil {
 		c.Err(err)
 		return
 	}
 	c.Printf("Deleted environment %s\n", environment.Key)
+}
+
+func keysForEnvironments(environments []ldapi.Environment) (keys []string) {
+	for _, e := range environments {
+		keys = append(keys, e.Key)
+	}
+	return keys
+}
+
+func realEnvPath(p path.ResourcePath) (perProjectPath, error) {
+	if p.Depth() != 2 {
+		return perProjectPath{}, errors.New("invalid path")
+	}
+	np, err := path.ReplaceDefaults(p, getDefaultPath, 2)
+	if err != nil {
+		return perProjectPath{}, err
+	}
+	return perProjectPath{np}, nil
 }

@@ -7,18 +7,18 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/launchdarkly/ldc/cmd/internal/path"
+
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 
 	ishell "gopkg.in/abiosoft/ishell.v2"
-
-	"github.com/launchdarkly/ldc/api"
 )
 
 type config struct {
 	// APIToken is the authorization token
 	APIToken string // `json:"apiToken"`
-	// Server is the api url (.../v2)
+	// Server is the host url (i.e. https://app.launchdarkly.com)
 	Server string // `json:"server,omitempty"`
 	// DefaultProject is the initial project to use
 	DefaultProject string // `json:"defaultProject"`
@@ -170,11 +170,12 @@ func selectConfig(c *ishell.Context) {
 }
 
 func setConfig(name string, config config) {
-	currentConfig = name
-	api.CurrentProject = config.DefaultProject
-	api.CurrentEnvironment = config.DefaultEnvironment
-	api.SetToken(config.APIToken)
-	api.SetServer(config.Server)
+	currentConfig = &name
+	if config.Server != "" {
+		currentServer = config.Server
+	}
+	currentProject = config.DefaultProject
+	currentEnvironment = config.DefaultEnvironment
 }
 
 func updateConfig(c *ishell.Context) {
@@ -409,3 +410,20 @@ func renameConfig(c *ishell.Context) {
 	reloadConfigFile()
 	c.Println("configuration renamed")
 }
+
+var getDefaultPath = path.DefaultPathSourceFunc(func(configKey *string) (path.ResourcePath, error) {
+	project := currentProject
+	environment := currentEnvironment
+	if configKey == nil {
+		configKey = currentConfig
+	}
+	if configKey != nil {
+		config, exists := configFile[*configKey]
+		if !exists {
+			return "", errors.New("config not found")
+		}
+		project = config.DefaultProject
+		environment = config.DefaultEnvironment
+	}
+	return path.NewAbsPath(configKey, project, environment), nil
+})

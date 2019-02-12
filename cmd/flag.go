@@ -15,9 +15,8 @@ import (
 	ldapi "github.com/launchdarkly/api-client-go"
 
 	"github.com/launchdarkly/ldc/api"
+	"github.com/launchdarkly/ldc/cmd/internal/path"
 )
-
-var flagCompleter = makeCompleter(emptyOnError(listFlagKeys))
 
 func addFlagCommands(shell *ishell.Shell) {
 
@@ -67,13 +66,13 @@ func addFlagCommands(shell *ishell.Shell) {
 	root.AddCmd(&ishell.Cmd{
 		Name:      "on",
 		Help:      "turn a boolean flag on",
-		Completer: flagCompleter,
+		Completer: flagEnvCompleter,
 		Func:      on,
 	})
 	root.AddCmd(&ishell.Cmd{
 		Name:      "off",
 		Help:      "turn a boolean flag off",
-		Completer: flagCompleter,
+		Completer: flagEnvCompleter,
 		Func:      off,
 	})
 	root.AddCmd(&ishell.Cmd{
@@ -104,10 +103,20 @@ func addFlagCommands(shell *ishell.Shell) {
 	root.AddCmd(&ishell.Cmd{
 		Name:      "status",
 		Help:      "show flag's statuses",
-		Completer: flagCompleter,
+		Completer: flagEnvCompleter,
 		Func: func(c *ishell.Context) {
 			if len(c.Args) > 0 {
-				status, _, err := api.Client.FeatureFlagsApi.GetFeatureFlagStatus(api.Auth, api.CurrentProject, api.CurrentEnvironment, c.Args[0])
+				flagPath, flag := getFlagConfigArg(c, 0)
+				if flag == nil {
+					return
+				}
+				auth := api.GetAuthCtx(getToken(flagPath.Config()))
+				client, err := api.GetClient(getServer(flagPath.Config()))
+				if err != nil {
+					c.Err(err)
+					return
+				}
+				status, _, err := client.FeatureFlagsApi.GetFeatureFlagStatus(auth, flagPath.Project(), flagPath.Environment(), flagPath.Key())
 				if err != nil {
 					c.Err(err)
 					return
@@ -115,7 +124,13 @@ func addFlagCommands(shell *ishell.Shell) {
 				c.Println("Status: " + status.Name)
 				c.Printf("Last Requested: %v\n", status.LastRequested)
 			} else {
-				statuses, _, err := api.Client.FeatureFlagsApi.GetFeatureFlagStatuses(api.Auth, api.CurrentProject, api.CurrentEnvironment)
+				auth := api.GetAuthCtx(getToken(currentConfig))
+				client, err := api.GetClient(getServer(currentConfig))
+				if err != nil {
+					c.Err(err)
+					return
+				}
+				statuses, _, err := client.FeatureFlagsApi.GetFeatureFlagStatuses(auth, currentProject, currentEnvironment)
 				if err != nil {
 					c.Err(err)
 					return
@@ -135,49 +150,220 @@ func addFlagCommands(shell *ishell.Shell) {
 	shell.AddCmd(root)
 }
 
-func getFlagArg(c *ishell.Context, pos int) *ldapi.FeatureFlag {
-	flags, err := listFlags()
-	if err != nil {
-		c.Err(err)
-		return nil
-	}
-
-	if len(c.Args) > pos {
-		flagKey := c.Args[pos]
-		for _, flag := range flags {
-			if flag.Key == flagKey {
-				return &flag // nolint:scopelint // ok because we return here
-			}
-		}
-		return nil
-	}
-
-	options, err := listFlagKeys()
-	if err != nil {
-		c.Err(err)
-		return nil
-	}
-
-	choice := c.MultiChoice(options, "Choose a flag: ")
-	if choice < 0 {
-		return nil
-	}
-
-	return &flags[choice]
+type perProjectPath struct {
+	path.ResourcePath
 }
 
-func listFlags() ([]ldapi.FeatureFlag, error) {
-	// TODO other projects
-	flags, _, err := api.Client.FeatureFlagsApi.GetFeatureFlags(api.Auth, api.CurrentProject, nil)
+func (p perProjectPath) Project() string {
+	return p.Keys()[0]
+}
+
+func (p perProjectPath) Key() string {
+	return p.Keys()[1]
+}
+
+func realFlagPath(p path.ResourcePath) (perProjectPath, error) {
+	if len(p.Keys()) != 2 {
+		return perProjectPath{}, errors.New("invalid path")
+	}
+	np, err := path.ReplaceDefaults(p, getDefaultPath, 1)
+	if err != nil {
+		return perProjectPath{}, err
+	}
+	return perProjectPath{np}, nil
+}
+
+type perEnvironmentPath struct {
+	path.ResourcePath
+}
+
+func (p perEnvironmentPath) Project() string {
+	return p.Keys()[0]
+}
+
+func (p perEnvironmentPath) Environment() string {
+	return p.Keys()[1]
+}
+
+func (p perEnvironmentPath) Key() string {
+	return p.Keys()[2]
+}
+
+func (p perEnvironmentPath) PerProjectPath() perProjectPath {
+	return perProjectPath{path.NewAbsPath(p.Config(), p.Project(), p.Key())}
+}
+
+func realFlagConfigPath(p path.ResourcePath) (perEnvironmentPath, error) {
+	if len(p.Keys()) != 3 {
+		return perEnvironmentPath{}, errors.New("invalid path")
+	}
+	np, err := path.ReplaceDefaults(p, getDefaultPath, 2)
+	if err != nil {
+		return perEnvironmentPath{}, err
+	}
+	return perEnvironmentPath{np}, nil
+}
+
+var flagLister = path.ListerFunc(func(parentPath path.ResourcePath) ([]string, error) {
+	return listFlagKeys(parentPath.Config(), parentPath.Keys()[0])
+})
+
+var projLister = path.ListerFunc(func(parentPath path.ResourcePath) ([]string, error) {
+	options, err := listProjectKeys(parentPath.Config())
+	return options, err
+})
+
+var envLister = path.ListerFunc(func(parentPath path.ResourcePath) ([]string, error) {
+	options, err := listEnvironmentKeys(parentPath.Config(), parentPath.Keys()[0])
+	return options, err
+})
+
+var configLister = path.ListerFunc(func(path path.ResourcePath) (configs []string, err error) {
+	configs = append(configs, path.Keys()...)
+	return configs, nil
+})
+
+func flagCompleter(args []string) (completions []string) {
+	if len(args) > 1 {
+		return nil
+	}
+
+	completer := path.NewCompleter(getDefaultPath, configLister, projLister, flagLister)
+	completions, _ = completer.GetCompletions(firstOrEmpty(args))
+	return completions
+}
+
+func flagEnvCompleter(args []string) (completions []string) {
+	if len(args) > 1 {
+		return nil
+	}
+
+	completer := path.NewCompleter(getDefaultPath, configLister, projLister, envLister, flagLister)
+	completions, _ = completer.GetCompletions(firstOrEmpty(args))
+	return completions
+}
+
+func getFlagArg(c *ishell.Context, pos int) (perProjectPath, *ldapi.FeatureFlag) { // nolint:dupl
+	var pathArg path.ResourcePath
+	if len(c.Args) > pos {
+		pathArg = path.ResourcePath(c.Args[pos])
+	} else {
+		flagKey, err := chooseFlagFromCurrentProject(c)
+		if err != nil {
+			c.Err(err)
+			return perProjectPath{}, nil
+		}
+		pathArg = path.NewAbsPath(currentConfig, currentProject, flagKey)
+	}
+
+	realPath, err := realFlagPath(pathArg)
+	if err != nil {
+		c.Err(err)
+		return perProjectPath{}, nil
+	}
+
+	flag, err := getFlag(realPath)
+	if err != nil {
+		c.Err(err)
+		return perProjectPath{}, nil
+	}
+	return realPath, flag
+}
+
+func chooseFlagFromCurrentProject(c *ishell.Context) (string, error) {
+	options, err := listFlagKeys(currentConfig, currentProject)
+	if err != nil {
+		return "", err
+	}
+	choice := c.MultiChoice(options, "Choose a flag: ")
+	if choice < 0 {
+		return "", errAborted
+	}
+	return options[choice], nil
+}
+
+func getFlagConfigArg(c *ishell.Context, pos int) (perEnvironmentPath, *ldapi.FeatureFlag) { // nolint:dupl
+	var pathArg path.ResourcePath
+	if len(c.Args) > pos {
+		pathArg = path.ResourcePath(c.Args[pos])
+	} else {
+		flagKey, err := chooseFlagFromCurrentProject(c)
+		if err != nil {
+			c.Err(err)
+			return perEnvironmentPath{}, nil
+		}
+		pathArg = path.NewAbsPath(currentConfig, currentProject, flagKey)
+	}
+
+	realPath, err := realFlagConfigPath(pathArg)
+	if err != nil {
+		c.Err(err)
+		return perEnvironmentPath{}, nil
+	}
+
+	flag, err := getFlag(realPath.PerProjectPath())
+	if err != nil {
+		c.Err(err)
+		return perEnvironmentPath{}, nil
+	}
+	return realPath, flag
+}
+
+func getFlag(p perProjectPath) (*ldapi.FeatureFlag, error) {
+	client, err := api.GetClient(getServer(p.Config()))
+	if err != nil {
+		return nil, err
+	}
+
+	auth := api.GetAuthCtx(getToken(p.Config()))
+	flag, _, err := client.FeatureFlagsApi.GetFeatureFlag(auth, p.Project(), p.Key(), nil)
+	if err != nil {
+		return nil, err
+	}
+	return &flag, err
+}
+
+func listFlags(configKey *string, projKey string) ([]ldapi.FeatureFlag, error) {
+	auth := api.GetAuthCtx(getToken(configKey))
+
+	client, err := api.GetClient(getServer(configKey))
+	if err != nil {
+		return nil, err
+	}
+
+	flags, _, err := client.FeatureFlagsApi.GetFeatureFlags(auth, projKey, nil)
 	if err != nil {
 		return nil, err
 	}
 	return flags.Items, nil
 }
 
-func listFlagKeys() ([]string, error) {
+func getToken(configKey *string) string {
+	var token string
+	if configKey != nil {
+		token = configFile[*configKey].APIToken
+	} else if currentConfig != nil {
+		token = configFile[*currentConfig].APIToken
+	}
+	if token == "" {
+		token = currentToken
+	}
+	return token
+}
+
+func getServer(configKey *string) string {
+	var token string
+	if configKey != nil {
+		token = configFile[*configKey].Server
+	} else {
+		token = currentServer
+	}
+	return token
+}
+
+func listFlagKeys(configKey *string, projKey string) ([]string, error) {
 	var keys []string
-	flags, err := listFlags()
+	flags, err := listFlags(configKey, projKey)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +374,7 @@ func listFlagKeys() ([]string, error) {
 }
 
 func showFlag(c *ishell.Context) {
-	flag := getFlagArg(c, 0)
+	_, flag := getFlagArg(c, 0)
 	if flag == nil {
 		c.Err(errors.New("flag not found"))
 		return
@@ -197,17 +383,35 @@ func showFlag(c *ishell.Context) {
 }
 
 func showFlags(c *ishell.Context) {
+	configKey := currentConfig
+	projectKey := currentProject
+
 	if len(c.Args) > 0 {
-		flag := getFlagArg(c, 0)
-		if flag == nil {
-			c.Println("Flag not found")
+		p := path.ResourcePath(c.Args[0])
+		switch {
+		case p.Depth() == 2:
+			_, flag := getFlagArg(c, 0)
+			if flag == nil {
+				c.Println("Flag not found")
+				return
+			}
+			renderFlag(c, *flag)
+			return
+		case p.Depth() == 1:
+			realPath, err := realProjPath(p)
+			if err != nil {
+				c.Err(err)
+				return
+			}
+			configKey = realPath.Config()
+			projectKey = realPath.Key()
+		default:
+			c.Err(errors.New("invalid path to project or flag"))
 			return
 		}
-		renderFlag(c, *flag)
-		return
 	}
 
-	flags, err := listFlags()
+	flags, err := listFlags(configKey, projectKey)
 	if err != nil {
 		c.Err(err)
 		return
@@ -281,26 +485,38 @@ func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
 
 func createToggleFlag(c *ishell.Context) {
 	var key, name string
+	var p perProjectPath
 	switch len(c.Args) {
 	case 0:
-		c.Println("Need at least a key for the new boolean flag")
-	case 1:
-		key = c.Args[0]
-		name = key
-	case 2:
-		key = c.Args[0]
-		name = c.Args[1]
+		c.Print("Key: ")
+		key = c.ReadLine()
+		c.Print("Name: ")
+		name = c.ReadLine()
+	case 1, 2:
+		p = perProjectPath{path.ResourcePath(c.Args[0])}
+		if p.Depth() != 2 {
+			c.Err(errors.New("invalid path"))
+		}
+		if len(c.Args) > 1 {
+			name = c.Args[1]
+		} else {
+			name = p.Key()
+		}
 	}
 	var t, f interface{}
 	t = true
 	f = false
-	flag, _, err := api.Client.FeatureFlagsApi.PostFeatureFlag(api.Auth, api.CurrentProject, ldapi.FeatureFlagBody{
-		Name: name,
-		Key:  key,
-		Variations: []ldapi.Variation{
-			ldapi.Variation{Value: &t},
-			ldapi.Variation{Value: &f},
-		},
+	client, err := api.GetClient(getServer(p.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	auth := api.GetAuthCtx(getToken(p.Config()))
+	flag, _, err := client.FeatureFlagsApi.PostFeatureFlag(auth, p.Project(), ldapi.FeatureFlagBody{
+		Name:       name,
+		Key:        key,
+		Variations: []ldapi.Variation{{Value: &t}, {Value: &f}},
 	}, nil)
 	if err != nil {
 		c.Err(err)
@@ -312,7 +528,7 @@ func createToggleFlag(c *ishell.Context) {
 }
 
 func editFlag(c *ishell.Context) {
-	flag := getFlagArg(c, 0)
+	flagPath, flag := getFlagArg(c, 0)
 	if flag == nil {
 		return
 	}
@@ -328,7 +544,13 @@ func editFlag(c *ishell.Context) {
 		return
 	}
 
-	_, _, err = api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, *patchComment)
+	client, err := api.GetClient(getServer(flagPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(flagPath.Config()))
+	_, _, err = client.FeatureFlagsApi.PatchFeatureFlag(auth, flagPath.Project(), flag.Key, *patchComment)
 	if err != nil {
 		c.Err(err)
 		return
@@ -338,7 +560,7 @@ func editFlag(c *ishell.Context) {
 }
 
 func addTag(c *ishell.Context) {
-	flag := getFlagArg(c, 0)
+	flagPath, flag := getFlagArg(c, 0)
 	tag := c.Args[1]
 	var patchComment ldapi.PatchComment
 	patchComment.Patch = []ldapi.PatchOperation{{
@@ -346,7 +568,14 @@ func addTag(c *ishell.Context) {
 		Path:  "/tags/-",
 		Value: interfacePtr(tag),
 	}}
-	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+
+	client, err := api.GetClient(getServer(flagPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(flagPath.Config()))
+	_, _, err = client.FeatureFlagsApi.PatchFeatureFlag(auth, flagPath.Project(), flag.Key, patchComment)
 	if err != nil {
 		c.Err(err)
 	}
@@ -354,11 +583,11 @@ func addTag(c *ishell.Context) {
 }
 
 func removeTag(c *ishell.Context) {
-	flag := getFlagArg(c, 0)
+	flagPath, flag := getFlagArg(c, 0)
 	tag := c.Args[1]
 	index := -1
-	for i, taga := range flag.Tags {
-		if tag == taga {
+	for i, tagA := range flag.Tags {
+		if tag == tagA {
 			index = i
 		}
 	}
@@ -370,7 +599,15 @@ func removeTag(c *ishell.Context) {
 		Op:   "remove",
 		Path: fmt.Sprintf("/tags/%d", index),
 	}}
-	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+
+	client, err := api.GetClient(getServer(flagPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(flagPath.Config()))
+
+	_, _, err = client.FeatureFlagsApi.PatchFeatureFlag(auth, flagPath.Project(), flagPath.Key(), patchComment)
 	if err != nil {
 		c.Err(err)
 	}
@@ -378,21 +615,28 @@ func removeTag(c *ishell.Context) {
 }
 
 func on(c *ishell.Context) {
-	flag := getFlagArg(c, 0)
+	flagPath, _ := getFlagConfigArg(c, 0)
 	var patchComment ldapi.PatchComment
 	patchComment.Patch = []ldapi.PatchOperation{{
 		Op:    "replace",
-		Path:  fmt.Sprintf("/environments/%s/on", api.CurrentEnvironment),
+		Path:  fmt.Sprintf("/environments/%s/on", flagPath.Environment()),
 		Value: interfacePtr(true),
 	}}
-	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+
+	client, err := api.GetClient(getServer(flagPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(flagPath.Config()))
+	_, _, err = client.FeatureFlagsApi.PatchFeatureFlag(auth, flagPath.Project(), flagPath.Key(), patchComment)
 	if err != nil {
 		c.Err(err)
 	}
 }
 
 func rollout(c *ishell.Context) {
-	flag := getFlagArg(c, 0)
+	flagPath, flag := getFlagConfigArg(c, 0)
 	var patchComment ldapi.PatchComment
 
 	if flag == nil {
@@ -439,36 +683,42 @@ func rollout(c *ishell.Context) {
 		variations = append(variations, ldapi.WeightedVariation{Variation: int32(index), Weight: weight})
 	}
 
-	originalFlag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, flag.Key, nil)
+	client, err := api.GetClient(getServer(flagPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(flagPath.Config()))
+	originalFlag, _, err := client.FeatureFlagsApi.GetFeatureFlag(auth, flagPath.Project(), flagPath.Key(), nil)
 	if err != nil {
 		c.Err(err)
 		return
 	}
 
 	var patches []ldapi.PatchOperation
-	originalFallthrough := originalFlag.Environments[api.CurrentEnvironment].Fallthrough_
+	originalFallthrough := originalFlag.Environments[currentEnvironment].Fallthrough_
 	if originalFallthrough.Rollout == nil {
 		patches = append(patches, ldapi.PatchOperation{
 			Op:   "remove",
-			Path: fmt.Sprintf("/environments/%s/fallthrough/variation", api.CurrentEnvironment),
+			Path: fmt.Sprintf("/environments/%s/fallthrough/variation", flagPath.Environment()),
 		})
 	}
 
 	patches = append(patches, ldapi.PatchOperation{
 		Op:    "replace",
-		Path:  fmt.Sprintf("/environments/%s/fallthrough/rollout", api.CurrentEnvironment),
+		Path:  fmt.Sprintf("/environments/%s/fallthrough/rollout", flagPath.Environment()),
 		Value: interfacePtr(ldapi.Rollout{Variations: variations}),
 	})
 
 	patchComment.Patch = patches
 
-	patchedFlag, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	patchedFlag, _, err := client.FeatureFlagsApi.PatchFeatureFlag(auth, flagPath.Project(), flagPath.Key(), patchComment)
 	if err != nil {
 		c.Err(err)
 		return
 	}
 
-	final := patchedFlag.Environments[api.CurrentEnvironment].Fallthrough_.Rollout
+	final := patchedFlag.Environments[flagPath.Environment()].Fallthrough_.Rollout
 
 	if renderJSON(c) {
 		printJSON(c, final)
@@ -490,7 +740,13 @@ func rolloutCompleter(args []string) (completions []string) {
 		return nonFinalCompleter(flagCompleter)(args)
 	}
 
-	currentFlag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, args[0], nil)
+	client, err := api.GetClient(getServer(currentConfig))
+	if err != nil {
+		return nil
+	}
+	auth := api.GetAuthCtx(getToken(currentConfig))
+
+	currentFlag, _, err := client.FeatureFlagsApi.GetFeatureFlag(auth, currentProject, args[0], nil)
 	if err != nil {
 		return nil
 	}
@@ -499,11 +755,11 @@ func rolloutCompleter(args []string) (completions []string) {
 		name := v.Name
 		if name == "" {
 
-			bytes, err := json.Marshal(v.Value)
+			data, err := json.Marshal(v.Value)
 			if err != nil {
 				continue
 			}
-			name = string(bytes)
+			name = string(data)
 		}
 		completions = append(completions, fmt.Sprintf(`%d:"%s":`, i, name))
 	}
@@ -512,7 +768,7 @@ func rolloutCompleter(args []string) (completions []string) {
 }
 
 func fallthru(c *ishell.Context) {
-	flag := getFlagArg(c, 0)
+	flagPath, flag := getFlagConfigArg(c, 0)
 	var patchComment ldapi.PatchComment
 
 	if flag == nil {
@@ -520,7 +776,14 @@ func fallthru(c *ishell.Context) {
 		return
 	}
 
-	originalFlag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, flag.Key, nil)
+	client, err := api.GetClient(getServer(flagPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(flagPath.Config()))
+
+	originalFlag, _, err := client.FeatureFlagsApi.GetFeatureFlag(auth, flagPath.Project(), flag.Key, nil)
 	if err != nil {
 		c.Err(err)
 		return
@@ -538,12 +801,12 @@ func fallthru(c *ishell.Context) {
 		for _, v := range originalFlag.Variations {
 			name := v.Name
 			if name == "" {
-				bytes, err := json.Marshal(v.Value)
+				data, err := json.Marshal(v.Value)
 				if err != nil {
 					c.Err(err)
 					return
 				}
-				name = string(bytes)
+				name = string(data)
 			}
 			options = append(options, name)
 		}
@@ -555,29 +818,29 @@ func fallthru(c *ishell.Context) {
 	}
 
 	var patches []ldapi.PatchOperation
-	originalFallthrough := originalFlag.Environments[api.CurrentEnvironment].Fallthrough_
+	originalFallthrough := originalFlag.Environments[currentEnvironment].Fallthrough_
 	if originalFallthrough.Rollout != nil {
 		patches = append(patches, ldapi.PatchOperation{
 			Op:   "remove",
-			Path: fmt.Sprintf("/environments/%s/fallthrough/rollout", api.CurrentEnvironment),
+			Path: fmt.Sprintf("/environments/%s/fallthrough/rollout", flagPath.Environment()),
 		})
 	}
 
 	patches = append(patches, ldapi.PatchOperation{
 		Op:    "replace",
-		Path:  fmt.Sprintf("/environments/%s/fallthrough/variation", api.CurrentEnvironment),
+		Path:  fmt.Sprintf("/environments/%s/fallthrough/variation", flagPath.Environment()),
 		Value: interfacePtr(value),
 	})
 
 	patchComment.Patch = patches
 
-	patchedFlag, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	patchedFlag, _, err := client.FeatureFlagsApi.PatchFeatureFlag(auth, currentProject, flag.Key, patchComment)
 	if err != nil {
 		c.Err(err)
 		return
 	}
 
-	final := patchedFlag.Environments[api.CurrentEnvironment].Fallthrough_.Variation
+	final := patchedFlag.Environments[currentEnvironment].Fallthrough_.Variation
 	printJSON(c, final)
 }
 
@@ -590,7 +853,13 @@ func fallthruCompleter(args []string) (completions []string) {
 		return nil
 	}
 
-	currentFlag, _, err := api.Client.FeatureFlagsApi.GetFeatureFlag(api.Auth, api.CurrentProject, args[0], nil)
+	client, err := api.GetClient(getServer(currentConfig))
+	if err != nil {
+		return nil
+	}
+	auth := api.GetAuthCtx(getToken(currentConfig))
+
+	currentFlag, _, err := client.FeatureFlagsApi.GetFeatureFlag(auth, currentProject, args[0], nil)
 	if err != nil {
 		return nil
 	}
@@ -598,11 +867,11 @@ func fallthruCompleter(args []string) (completions []string) {
 	for i, v := range currentFlag.Variations {
 		name := v.Name
 		if name == "" {
-			bytes, err := json.Marshal(v.Value)
+			data, err := json.Marshal(v.Value)
 			if err != nil {
 				continue
 			}
-			name = string(bytes)
+			name = string(data)
 		}
 		completions = append(completions, fmt.Sprintf(`%d:"%s"`, i, name))
 	}
@@ -611,14 +880,20 @@ func fallthruCompleter(args []string) (completions []string) {
 }
 
 func off(c *ishell.Context) {
-	flag := getFlagArg(c, 0)
+	flagPath, flag := getFlagConfigArg(c, 0)
 	var patchComment ldapi.PatchComment
 	patchComment.Patch = []ldapi.PatchOperation{{
 		Op:    "replace",
-		Path:  fmt.Sprintf("/environments/%s/on", api.CurrentEnvironment),
+		Path:  fmt.Sprintf("/environments/%s/on", flagPath.Environment()),
 		Value: interfacePtr(false),
 	}}
-	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+	client, err := api.GetClient(getServer(flagPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(flagPath.Config()))
+	_, _, err = client.FeatureFlagsApi.PatchFeatureFlag(auth, flagPath.Project(), flag.Key, patchComment)
 	if err != nil {
 		c.Err(err)
 	}
@@ -632,7 +907,7 @@ func createFlag(c *ishell.Context) {
 }
 
 func deleteFlag(c *ishell.Context) {
-	flag := getFlagArg(c, 0)
+	flagPath, flag := getFlagArg(c, 0)
 	if flag == nil {
 		c.Err(errors.New("flag-not-found"))
 		return
@@ -641,8 +916,13 @@ func deleteFlag(c *ishell.Context) {
 	if !confirmDelete(c, "flag key", flag.Key) {
 		return
 	}
-
-	_, err := api.Client.FeatureFlagsApi.DeleteFeatureFlag(api.Auth, api.CurrentProject, flag.Key)
+	client, err := api.GetClient(getServer(flagPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(flagPath.Config()))
+	_, err = client.FeatureFlagsApi.DeleteFeatureFlag(auth, flagPath.Project(), flag.Key)
 	if err != nil {
 		c.Err(err)
 		return

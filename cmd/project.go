@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/launchdarkly/ldc/cmd/internal/path"
+
 	"github.com/olekukonko/tablewriter"
 	ishell "gopkg.in/abiosoft/ishell.v2"
 
@@ -45,44 +47,43 @@ func addProjectCommands(shell *ishell.Shell) {
 		Func:      deleteProject,
 	})
 
-	root.AddCmd(&ishell.Cmd{
-		Name:      "switch",
-		Aliases:   []string{"select"},
-		Help:      "switch the current project",
-		Completer: projectCompleter,
-		Func: func(c *ishell.Context) {
-			foundProject := getProjectArg(c)
-			if foundProject != nil {
-				switchToProject(c, foundProject)
-			}
-		},
-	})
-
 	shell.AddCmd(root)
 }
 
-func listProjects() ([]ldapi.Project, error) {
-	projects, _, err := api.Client.ProjectsApi.GetProjects(api.Auth)
+type projPath struct {
+	path.ResourcePath
+}
+
+func (f projPath) Key() string {
+	return f.Keys()[0]
+}
+
+func listProjects(configKey *string) ([]ldapi.Project, error) {
+	client, err := api.GetClient(getServer(configKey))
+	if err != nil {
+		return nil, err
+	}
+	auth := api.GetAuthCtx(getToken(configKey))
+	projects, _, err := client.ProjectsApi.GetProjects(auth)
 	if err != nil {
 		return nil, err
 	}
 	return projects.Items, nil
 }
 
-func listProjectKeys() ([]string, error) {
-	var keys []string
-	projects, _, err := api.Client.ProjectsApi.GetProjects(api.Auth)
+func listProjectKeys(configKey *string) (keys []string, err error) {
+	projects, err := listProjects(configKey)
 	if err != nil {
 		return nil, err
 	}
-	for _, project := range projects.Items {
+	for _, project := range projects {
 		keys = append(keys, project.Key)
 	}
 	return keys, nil
 }
 
 func showProject(c *ishell.Context) {
-	proj := getProjectArg(c)
+	projPath, proj := getProjectArg(c)
 
 	if proj == nil {
 		c.Println("Project not found")
@@ -94,11 +95,11 @@ func showProject(c *ishell.Context) {
 		return
 	}
 
-	showEnvironmentsForProject(c, proj.Key)
+	showEnvironmentsForProject(c, projPath)
 }
 
 func showProjects(c *ishell.Context) {
-	projects, err := listProjects()
+	projects, err := listProjects(currentConfig)
 	if err != nil {
 		c.Err(err)
 		return
@@ -123,90 +124,125 @@ func showProjects(c *ishell.Context) {
 	}
 }
 
-func switchToProject(c *ishell.Context, project *ldapi.Project) {
+func switchToProject(c *ishell.Context, path projPath, project *ldapi.Project) {
 	if isInteractive(c) {
-		c.Printf("Switching to project %s\n", project.Key)
+		c.Printf("Switching to project %s\n", path.Key())
 	}
-	api.CurrentProject = project.Key
+	currentProject = path.Key()
+	currentConfig = path.Config()
 
 	if len(project.Environments) == 0 {
 		if isInteractive(c) {
 			c.Println("This project has no environments")
 		}
-		api.CurrentEnvironment = ""
+		currentEnvironment = ""
 	} else {
 		environmentKey := project.Environments[0].Key
 		if isInteractive(c) {
 			c.Printf("Switching to environment %s\n", environmentKey)
 		}
-		api.CurrentEnvironment = environmentKey
+		currentEnvironment = environmentKey
 	}
-	c.SetPrompt(api.CurrentProject + "/" + api.CurrentEnvironment + "> ")
+	c.SetPrompt(currentProject + "/" + currentEnvironment + "> ")
 }
 
-var projectCompleter = makeCompleter(emptyOnError(listProjectKeys))
+func projectCompleter(args []string) (completions []string) {
+	if len(args) > 1 {
+		return nil
+	}
 
-func getProjectArg(c *ishell.Context) *ldapi.Project {
-	projects, err := listProjects()
+	completer := path.NewCompleter(getDefaultPath, configLister, projLister)
+	completions, _ = completer.GetCompletions(firstOrEmpty(args))
+	return completions
+}
+
+func getProjectArg(c *ishell.Context) (projPath, *ldapi.Project) {
+	var pathArg path.ResourcePath
+	if len(c.Args) > 0 {
+		pathArg = path.ResourcePath(c.Args[0])
+	} else {
+		proj, err := chooseProjectFromCurrentConfig(c)
+		if err != nil {
+			c.Err(err)
+			return projPath{}, nil
+		}
+		pathArg = path.NewAbsPath(currentConfig, proj.Key)
+	}
+
+	realPath, err := realProjPath(pathArg)
 	if err != nil {
 		c.Err(err)
-		return nil
+		return projPath{}, nil
+	}
+	return realPath, nil
+}
+
+func chooseProjectFromCurrentConfig(c *ishell.Context) (*ldapi.Project, error) {
+	projects, err := listProjects(currentConfig)
+	if err != nil {
+		return nil, err
 	}
 	if len(c.Args) > 0 {
 		projectKey := c.Args[0]
 		for _, project := range projects {
 			if project.Key == projectKey {
-				return &project // nolint:scopelint // ok because we return immediately
+				return &project, nil // nolint:scopelint // ok because we return immediately
 			}
 		}
-		c.Err(fmt.Errorf(`project "%s" does not exist`, projectKey))
-		return nil
+		return nil, fmt.Errorf("unknown project")
 	}
 
-	options, err := listProjectKeys()
-	if err != nil {
-		c.Err(err)
-		return nil
-	}
-
+	options := keysForProjects(projects)
 	choice := c.MultiChoice(options, "Choose a project")
 	if choice < 0 {
-		return nil
+		return nil, nil
 	}
 
-	return &projects[choice]
+	return &projects[choice], nil
 }
 
 func createProject(c *ishell.Context) {
 	var key, name string
+	var p projPath
 	switch len(c.Args) {
 	case 0:
 		c.Err(errors.New("please supply at least a key for the new environment"))
 		return
-	case 1:
-		key = c.Args[0]
-		name = key
-	case 2:
-		key = c.Args[0]
-		name = c.Args[1]
+	case 1, 2:
+		p = projPath{path.ResourcePath(c.Args[0])}
+		if p.Depth() != 1 {
+			c.Err(errors.New("invalid path"))
+		}
+		if len(c.Args) > 1 {
+			name = c.Args[1]
+		} else {
+			name = p.Key()
+		}
 	default:
 		c.Err(errors.New(`expected arguments are "key [name]"`))
 		return
 	}
 	// TODO: openapi should be updated to return the new project
-	if _, err := api.Client.ProjectsApi.PostProject(api.Auth, ldapi.ProjectBody{Key: key, Name: name}); err != nil {
+	client, err := api.GetClient(getServer(p.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(p.Config()))
+
+	if _, err := client.ProjectsApi.PostProject(auth, ldapi.ProjectBody{Key: key, Name: name}); err != nil {
 		c.Err(err)
 		return
 	}
 	if !renderJSON(c) {
 		c.Printf("Created project %s\n", key)
 	}
-	project, _, err := api.Client.ProjectsApi.GetProject(api.Auth, key)
+	project, _, err := client.ProjectsApi.GetProject(auth, key)
 	if err != nil {
 		c.Err(err)
 		return
 	}
-	switchToProject(c, &project)
+	switchToProject(c, p, &project)
 	if renderJSON(c) {
 		printJSON(c, project)
 		return
@@ -214,20 +250,44 @@ func createProject(c *ishell.Context) {
 }
 
 func deleteProject(c *ishell.Context) {
-	project := getProjectArg(c)
+	projPath, project := getProjectArg(c)
 	if project == nil {
-		c.Err(fmt.Errorf("project does not exist"))
+		c.Err(fmt.Errorf("unknown project"))
 		return
 	}
 	if !confirmDelete(c, "project key", project.Key) {
 		return
 	}
-	_, err := api.Client.ProjectsApi.DeleteProject(api.Auth, project.Key)
+	client, err := api.GetClient(getServer(projPath.Config()))
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	auth := api.GetAuthCtx(getToken(projPath.Config()))
+	_, err = client.ProjectsApi.DeleteProject(auth, projPath.Key())
 	if err != nil {
 		c.Err(err)
 		return
 	}
 	if isInteractive(c) {
-		c.Printf("Deleted project %s\n", project.Key)
+		c.Printf(`Project "%s" was deleted\n`, project.Key)
 	}
+}
+
+func keysForProjects(projects []ldapi.Project) (keys []string) {
+	for _, e := range projects {
+		keys = append(keys, e.Key)
+	}
+	return keys
+}
+
+func realProjPath(p path.ResourcePath) (projPath, error) {
+	if p.Depth() != 1 {
+		return projPath{}, errors.New("invalid path")
+	}
+	np, err := path.ReplaceDefaults(p, getDefaultPath, 1)
+	if err != nil {
+		return projPath{}, err
+	}
+	return projPath{np}, nil
 }

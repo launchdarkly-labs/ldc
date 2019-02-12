@@ -25,6 +25,7 @@ const (
 var errTooManyArgs = errors.New("too many arguments")
 var errTooFewArgs = errors.New("too few arguments")
 var errNotFound = errors.New("not found")
+var errAborted = errors.New("aborted")
 
 func confirmDelete(c *ishell.Context, name string, expectedValue string) bool {
 	if !isInteractive(c) {
@@ -180,14 +181,11 @@ func editFile(c *ishell.Context, original []byte) (patch *ldapi.PatchComment, er
 	return &patchComment, nil
 }
 
-func emptyOnError(f func() ([]string, error)) func() []string {
-	return func() []string {
-		values, err := f()
-		if err != nil {
-			return nil
-		}
-		return values
+func firstOrEmpty(args []string) string {
+	if len(args) == 0 {
+		return ""
 	}
+	return args[0]
 }
 
 func yesOrNo(c *ishell.Context) (yes bool) {

@@ -15,12 +15,11 @@ defaults:
       github.com/kyoh86/richgo
 
   build_steps: &build_steps
-    working_directory: &working_dir /go/src/github.com/launchdarkly/ldc
     steps:
       - checkout
       - run: go get -u $COMMON_GO_PACKAGES
       - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-      - run: dep ensure -dry-run
+      - run: go mod verify
       - run: sudo apt-get install python-pip
       - run: sudo pip install pre-commit
       - run: pre-commit install
@@ -70,7 +69,7 @@ jobs:
     docker:
       - <<: *build_image
 
-    working_directory: *working_dir
+    working_directory: &working_dir /go/src/github.com/launchdarkly/ldc
     steps:
       - checkout
       - run: make release-snapshot

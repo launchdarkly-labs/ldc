@@ -29,10 +29,10 @@ func (cc customCompleter) Do(line []rune, pos int) (newLine [][]rune, length int
 	prefix := ""
 	if len(words) > 0 && pos > 0 && line[pos-1] != ' ' {
 		prefix = words[len(words)-1]
-		cWords = cc.getWords(words[:len(words)-1])
 	} else {
-		cWords = cc.getWords(words)
+		words = append(words, "")
 	}
+	cWords = cc.getSuggestions(words)
 
 	var suggestions [][]rune
 	for _, w := range cWords {
@@ -46,12 +46,12 @@ func (cc customCompleter) Do(line []rune, pos int) (newLine [][]rune, length int
 	return suggestions, len(prefix)
 }
 
-func (cc customCompleter) getWords(w []string) (s []string) {
-	if len(w) == 0 {
+func (cc customCompleter) getSuggestions(w []string) (suggestions []string) {
+	// Add all the top-level options
+	if len(w) == 1 {
 		for _, c := range cc.shell.Cmds() {
-			s = append(s, c.Name)
+			suggestions = append(suggestions, c.Name)
 		}
-		return s
 	}
 	for _, c := range cc.shell.Cmds() {
 		if !containsString(append(append([]string{}, c.Name), c.Aliases...), w[0]) {
@@ -72,11 +72,14 @@ func (cc customCompleter) getWords(w []string) (s []string) {
 
 		if len(c.Children()) > 0 {
 			for _, k := range c.Children() {
-				s = append(s, k.Name)
+				suggestions = append(suggestions, k.Name)
 			}
-			return s
+			return suggestions
 		}
 
+		if c.Completer != nil {
+			return c.Completer(args)
+		}
 	}
-	return nil
+	return suggestions
 }

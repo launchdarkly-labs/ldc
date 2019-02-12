@@ -3,8 +3,11 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
+
+	"github.com/launchdarkly/ldc/cmd/internal/path"
 
 	ldapi "github.com/launchdarkly/api-client-go"
 
@@ -14,8 +17,6 @@ import (
 	"github.com/launchdarkly/ldc/api"
 	"github.com/launchdarkly/ldc/goalapi"
 )
-
-var goalCompleter = makeCompleter(emptyOnError(listGoalNames))
 
 func addGoalCommands(shell *ishell.Shell) {
 
@@ -87,38 +88,110 @@ func addGoalCommands(shell *ishell.Shell) {
 	shell.AddCmd(root)
 }
 
-func getGoalArg(c *ishell.Context) *goalapi.Goal {
-	goals, _ := goalapi.GetGoals()
+type goalPath struct {
+	perEnvironmentPath
+}
+
+func (p goalPath) ID() string {
+	return p.Keys()[2]
+}
+
+func (p goalPath) EnvPath() perProjectPath {
+	return perProjectPath{path.NewAbsPath(p.Config(), p.Project(), p.Environment())}
+}
+
+func getGoalArg(c *ishell.Context) (goalPath, *goalapi.Goal) {
+	var goal *goalapi.Goal
+	var realPath path.ResourcePath
 	if len(c.Args) > 0 {
-		goalKey := c.Args[0]
+		pathArg := path.ResourcePath(c.Args[0])
+		realPath, err := realGoalPath(pathArg)
+		if err != nil {
+			c.Err(err)
+			return goalPath{}, nil
+		}
+
+		ctx, err := newGoalAPIContext(realPath.EnvPath())
+		if err != nil {
+			c.Err(err)
+			return goalPath{}, nil
+		}
+
+		goals, err := goalapi.GetGoals(ctx)
+		if err != nil {
+			c.Err(err)
+			return goalPath{}, nil
+		}
+
+		// match either id or name
 		for _, g := range goals {
-			if g.ID == goalKey || g.Name == goalKey {
-				foundGoal, err := goalapi.GetGoal(g.ID)
+			if g.ID == realPath.ID() || g.Name == realPath.Key() {
+				goal, err = goalapi.GetGoal(ctx, g.ID)
 				if err != nil {
 					c.Err(err)
-					return nil
+					return goalPath{}, nil
 				}
-				return foundGoal
+				break
 			}
 		}
+	} else {
+		goal, err := chooseGoalFromCurrentEnvironment(c)
+		if err != nil {
+			c.Err(err)
+			return goalPath{}, nil
+		}
+		realPath = path.NewAbsPath(currentConfig, currentProject, currentEnvironment, *goal.Key)
 	}
 
-	options, err := listGoalNames()
+	return goalPath{perEnvironmentPath{realPath}}, goal
+}
+
+func chooseGoalFromCurrentEnvironment(c *ishell.Context) (goal *goalapi.Goal, err error) {
+	envPath := perProjectPath{ResourcePath: path.NewAbsPath(currentConfig, currentProject, currentEnvironment)}
+	ctx, err := newGoalAPIContext(envPath)
 	if err != nil {
-		c.Err(err)
-		return nil
+		return nil, err
+	}
+
+	goals, _ := goalapi.GetGoals(ctx)
+	var options []string
+	for _, g := range goals {
+		options = append(options, g.Name)
+	}
+	if err != nil {
+		return nil, err
 	}
 	choice := c.MultiChoice(options, "Choose a goal: ")
 	if choice < 0 {
-		return nil
+		return nil, err
 	}
-	foundGoal, _ := goalapi.GetGoal(goals[choice].ID)
-	return foundGoal
+	foundGoal, _ := goalapi.GetGoal(ctx, goals[choice].ID)
+	return foundGoal, nil
 }
 
-func listGoalNames() ([]string, error) {
+func goalCompleter(args []string) (completions []string) {
+	if len(args) > 1 {
+		return nil
+	}
+
+	completer := path.NewCompleter(getDefaultPath, configLister, projLister, envLister, goalLister)
+	completions, _ = completer.GetCompletions(firstOrEmpty(args))
+	return completions
+}
+
+var goalLister = path.ListerFunc(func(parentPath path.ResourcePath) ([]string, error) {
+	return listGoalNames(parentPath.Config(), parentPath.Keys()[0], parentPath.Keys()[1])
+})
+
+func listGoalNames(configKey *string, projKey string, envKey string) ([]string, error) {
+	envPath := perProjectPath{ResourcePath: path.NewAbsPath(configKey, projKey, envKey)}
+	ctx, err := newGoalAPIContext(envPath)
+	if err != nil {
+		return nil, err
+	}
+
 	var keys []string
-	g, err := goalapi.GetGoals()
+	g, err := goalapi.GetGoals(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -129,18 +202,7 @@ func listGoalNames() ([]string, error) {
 }
 
 func showGoal(c *ishell.Context) {
-	var goal *goalapi.Goal
-	if len(c.Args) == 0 {
-		goal = getGoalArg(c)
-	} else {
-		key := c.Args[0]
-		var err error
-		goal, err = getGoalByNameOrID(key)
-		if err != nil {
-			c.Err(err)
-			return
-		}
-	}
+	_, goal := getGoalArg(c)
 	if goal == nil {
 		c.Println("Unknown goal")
 		return
@@ -148,20 +210,9 @@ func showGoal(c *ishell.Context) {
 	renderGoal(c, goal)
 }
 
-func getGoalByNameOrID(key string) (*goalapi.Goal, error) {
-	goals, _ := goalapi.GetGoals()
-	for _, g := range goals {
-		if g.ID == key || g.Name == key {
-			goal, err := goalapi.GetGoal(g.ID)
-			return goal, err
-		}
-	}
-	return nil, nil
-}
-
 func showGoals(c *ishell.Context) {
 	if len(c.Args) > 0 {
-		goal := getGoalArg(c)
+		_, goal := getGoalArg(c)
 		if goal == nil {
 			c.Println("Unknown goal")
 			return
@@ -170,11 +221,20 @@ func showGoals(c *ishell.Context) {
 		return
 	}
 
-	goals, err := goalapi.GetGoals()
+	envPath := perProjectPath{ResourcePath: path.NewAbsPath(currentConfig, currentProject, currentEnvironment)}
+
+	ctx, err := newGoalAPIContext(envPath)
 	if err != nil {
 		c.Err(err)
 		return
 	}
+
+	goals, err := goalapi.GetGoals(ctx)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
 	buf := bytes.Buffer{}
 	table := tablewriter.NewWriter(&buf)
 	table.SetHeader([]string{"Name", "ID", "Description", "Kind", "Attached Flags"})
@@ -192,19 +252,25 @@ func showGoals(c *ishell.Context) {
 }
 
 func showExperimentResults(c *ishell.Context) {
-	goal := getGoalArg(c)
+	p, goal := getGoalArg(c)
 	if goal == nil {
 		c.Println("Unknown goal")
 		return
 	}
 
-	flag := getFlagArg(c, 1)
+	_, flag := getFlagArg(c, 1)
 	if flag == nil {
 		c.Println("Unknown flag")
 		return
 	}
 
-	results, err := goalapi.GetExperimentResults(goal.ID, flag.Key)
+	ctx, err := newGoalAPIContext(p.EnvPath())
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	results, err := goalapi.GetExperimentResults(ctx, goal.ID, flag.Key)
 	if err != nil {
 		c.Err(err)
 		return
@@ -244,7 +310,7 @@ func renderGoal(c *ishell.Context, goal *goalapi.Goal) {
 }
 
 func editGoal(c *ishell.Context) {
-	goal := getGoalArg(c)
+	p, goal := getGoalArg(c)
 	data, _ := json.MarshalIndent(goal, "", "    ")
 
 	patchComment, err := editFile(c, data)
@@ -258,7 +324,13 @@ func editGoal(c *ishell.Context) {
 		return
 	}
 
-	_, err = goalapi.PatchGoal(goal.ID, *patchComment)
+	ctx, err := newGoalAPIContext(p.EnvPath())
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	_, err = goalapi.PatchGoal(ctx, goal.ID, *patchComment)
 	if err != nil {
 		c.Err(err)
 		return
@@ -268,27 +340,36 @@ func editGoal(c *ishell.Context) {
 }
 
 func createCustomGoal(c *ishell.Context) {
-	var name string
+	var p goalPath
 	var key string
 	if len(c.Args) > 1 {
-		name = c.Args[0]
+		p = goalPath{perEnvironmentPath{path.ResourcePath(c.Args[0])}}
 		key = c.Args[1]
 	} else {
 		c.Print("Name: ")
-		name = c.ReadLine()
+		name := c.ReadLine()
 		c.Print("Key: ")
 		key = c.ReadLine()
+		p = goalPath{perEnvironmentPath{path.NewAbsPath(currentConfig, currentProject, currentEnvironment, name)}}
 	}
 	goal := goalapi.Goal{
-		Name: name,
+		Name: p.Key(),
 		Kind: "custom",
 		Key:  &key,
 	}
-	newGoal, err := goalapi.CreateGoal(goal)
+
+	ctx, err := newGoalAPIContext(p.EnvPath())
 	if err != nil {
 		c.Err(err)
 		return
 	}
+
+	newGoal, err := goalapi.CreateGoal(ctx, goal)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
 	if isInteractive(c) {
 		c.Println("Created goal")
 	}
@@ -298,9 +379,15 @@ func createCustomGoal(c *ishell.Context) {
 }
 
 func deleteGoal(c *ishell.Context) {
-	goal := getGoalArg(c)
+	p, goal := getGoalArg(c)
 
-	err := goalapi.DeleteGoal(goal.ID)
+	ctx, err := newGoalAPIContext(p.EnvPath())
+	if err != nil {
+		c.Err(err)
+		return
+	}
+
+	err = goalapi.DeleteGoal(ctx, goal.ID)
 	if err != nil {
 		c.Err(err)
 	} else {
@@ -316,10 +403,9 @@ func boolToCheck(b bool) string {
 }
 
 func attachGoal(c *ishell.Context) {
-	var goal *goalapi.Goal
 	var flag *ldapi.FeatureFlag
-	goal = getGoalArg(c)
-	flag = getFlagArg(c, 1)
+	goalPath, goal := getGoalArg(c)
+	_, flag = getFlagArg(c, 1)
 
 	for _, g := range flag.GoalIds {
 		if g == goal.ID {
@@ -331,18 +417,25 @@ func attachGoal(c *ishell.Context) {
 	patchComment := ldapi.PatchComment{
 		Patch: []ldapi.PatchOperation{{Op: "add", Path: "/goalIds/-", Value: interfacePtr(goal.ID)}},
 	}
-	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+
+	client, err := api.GetClient(getServer(goalPath.Config()))
 	if err != nil {
 		c.Err(err)
 		return
 	}
+	auth := api.GetAuthCtx(getToken(goalPath.Config()))
+	_, _, err = client.FeatureFlagsApi.PatchFeatureFlag(auth, currentProject, flag.Key, patchComment)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	c.Println("Goal was attached")
 }
 
 func detachGoal(c *ishell.Context) {
-	var goal *goalapi.Goal
 	var flag *ldapi.FeatureFlag
-	goal = getGoalArg(c)
-	flag = getFlagArg(c, 1)
+	goalPath, goal := getGoalArg(c)
+	_, flag = getFlagArg(c, 1)
 
 	var pos *int
 	for p, g := range flag.GoalIds {
@@ -360,11 +453,19 @@ func detachGoal(c *ishell.Context) {
 	patchComment := ldapi.PatchComment{
 		Patch: []ldapi.PatchOperation{{Op: "remove", Path: fmt.Sprintf("/goalIds/%d", *pos)}},
 	}
-	_, _, err := api.Client.FeatureFlagsApi.PatchFeatureFlag(api.Auth, api.CurrentProject, flag.Key, patchComment)
+
+	client, err := api.GetClient(getServer(goalPath.Config()))
 	if err != nil {
 		c.Err(err)
 		return
 	}
+	auth := api.GetAuthCtx(getToken(goalPath.Config()))
+	_, _, err = client.FeatureFlagsApi.PatchFeatureFlag(auth, currentProject, flag.Key, patchComment)
+	if err != nil {
+		c.Err(err)
+		return
+	}
+	c.Println("Goal was detached")
 }
 
 func attachGoalCompleter(args []string) []string {
@@ -388,11 +489,16 @@ func detachGoalCompleter(args []string) (completions []string) {
 		return nil
 	}
 
-	goals, _ := goalapi.GetGoals()
+	ctx, err := newGoalAPIContext(perProjectPath{path.NewAbsPath(currentConfig, currentProject, currentEnvironment)})
+	if err != nil {
+		return
+	}
+
+	goals, _ := goalapi.GetGoals(ctx)
 	goalKey := args[0]
 	for _, g := range goals {
 		if g.ID == goalKey || g.Name == goalKey {
-			goal, err := goalapi.GetGoal(g.ID)
+			goal, err := goalapi.GetGoal(ctx, g.ID)
 			if err != nil {
 				return nil
 			}
@@ -437,4 +543,29 @@ func renderExperimentResults(c *ishell.Context, results *goalapi.ExperimentResul
 
 func floatToStr(f float64) string {
 	return fmt.Sprintf("%f", f)
+}
+
+func realGoalPath(p path.ResourcePath) (goalPath, error) {
+	if p.Depth() != 2 {
+		return goalPath{}, errors.New("invalid path")
+	}
+	np, err := path.ReplaceDefaults(p, getDefaultPath, 2)
+	if err != nil {
+		return goalPath{}, err
+	}
+	return goalPath{perEnvironmentPath{np}}, nil
+}
+
+func newGoalAPIContext(envPath perProjectPath) (goalapi.Context, error) {
+	host := getServer(envPath.Config())
+	auth := api.GetAuthCtx(getToken(envPath.Config()))
+	client, err := api.GetClient(host)
+	if err != nil {
+		return goalapi.Context{}, err
+	}
+	env, _, err := client.EnvironmentsApi.GetEnvironment(auth, envPath.Project(), envPath.Key())
+	if err != nil {
+		return goalapi.Context{}, err
+	}
+	return goalapi.NewContext(host, env.ApiKey), nil
 }
