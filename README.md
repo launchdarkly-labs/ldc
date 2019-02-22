@@ -15,7 +15,7 @@ You may specific `~/.config/ldc.json` that looks like:
 {
   "staging": {
     "token": "<your api token>",
-    "server": "https://app.launchdarkly.com/api/v2",
+    "server": "https://app.launchdarkly.com/",
     "defaultProject": "default",
     "defaultEnvironment": "production"
   }
