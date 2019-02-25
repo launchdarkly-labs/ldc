@@ -23,7 +23,7 @@ defaults:
             git clone https://github.com/sstephenson/bats.git ~/bats
             cd ~/bats
             sudo ./install.sh /usr/local
-      - run: go get -u $COMMON_GO_PACKAGES
+      - run: GO111MODULE=off go get -u $COMMON_GO_PACKAGES
       - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
       - run: go mod verify
       - run: sudo apt-get install python-pip
