@@ -105,6 +105,9 @@ func getGoalArg(c *ishell.Context) (goalPath, *goalapi.Goal) {
 	var realPath path.ResourcePath
 	if len(c.Args) > 0 {
 		pathArg := path.ResourcePath(c.Args[0])
+		if !pathArg.IsAbs() && pathArg.Depth() == 1 {
+			pathArg = path.NewAbsPath(currentConfig, currentProject, currentEnvironment, pathArg.Keys()[0])
+		}
 		realPath, err := realGoalPath(pathArg)
 		if err != nil {
 			c.Err(err)

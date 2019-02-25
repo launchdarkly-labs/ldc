@@ -25,4 +25,8 @@ release:
 release-snapshot:
 	$(RELEASE_CMD) --skip-publish --skip-validate --snapshot
 
+integration-test:
+	go build .
+	LDC=$(CURDIR)/ldc bats test.bats
+
 .PHONY: docker init lint publish-snapshot release release-snapshot

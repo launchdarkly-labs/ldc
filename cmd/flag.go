@@ -247,6 +247,9 @@ func getFlagArg(c *ishell.Context, pos int) (perProjectPath, *ldapi.FeatureFlag)
 	var pathArg path.ResourcePath
 	if len(c.Args) > pos {
 		pathArg = path.ResourcePath(c.Args[pos])
+		if !pathArg.IsAbs() && pathArg.Depth() == 1 {
+			pathArg = path.NewAbsPath(currentConfig, currentProject, pathArg.Keys()[0])
+		}
 	} else {
 		flagKey, err := chooseFlagFromCurrentProject(c)
 		if err != nil {
@@ -286,6 +289,9 @@ func getFlagConfigArg(c *ishell.Context, pos int) (perEnvironmentPath, *ldapi.Fe
 	var pathArg path.ResourcePath
 	if len(c.Args) > pos {
 		pathArg = path.ResourcePath(c.Args[pos])
+		if !pathArg.IsAbs() && pathArg.Depth() == 1 {
+			pathArg = path.NewAbsPath(currentConfig, currentProject, currentEnvironment, pathArg.Keys()[0])
+		}
 	} else {
 		flagKey, err := chooseFlagFromCurrentProject(c)
 		if err != nil {
@@ -352,13 +358,10 @@ func getToken(configKey *string) string {
 }
 
 func getServer(configKey *string) string {
-	var token string
 	if configKey != nil {
-		token = configFile[*configKey].Server
-	} else {
-		token = currentServer
+		return configFile[*configKey].Server
 	}
-	return token
+	return currentServer
 }
 
 func listFlagKeys(configKey *string, projKey string) ([]string, error) {
@@ -484,24 +487,32 @@ func renderFlag(c *ishell.Context, flag ldapi.FeatureFlag) {
 }
 
 func createToggleFlag(c *ishell.Context) {
-	var key, name string
+	var name string
 	var p perProjectPath
 	switch len(c.Args) {
 	case 0:
 		c.Print("Key: ")
-		key = c.ReadLine()
+		key := c.ReadLine()
 		c.Print("Name: ")
 		name = c.ReadLine()
+		p = perProjectPath{path.NewAbsPath(currentConfig, currentProject, key)}
 	case 1, 2:
-		p = perProjectPath{path.ResourcePath(c.Args[0])}
-		if p.Depth() != 2 {
+		bp := path.ResourcePath(c.Args[0])
+		if !bp.IsAbs() && bp.Depth() == 1 {
+			bp = path.NewAbsPath(currentConfig, currentProject, bp.Keys()[0])
+			fmt.Printf("Creating flag: %s", bp)
+		}
+		if bp.Depth() != 2 {
 			c.Err(errors.New("invalid path"))
+			return
 		}
 		if len(c.Args) > 1 {
 			name = c.Args[1]
-		} else {
-			name = p.Key()
 		}
+		p = perProjectPath{bp}
+	}
+	if name == "" {
+		name = p.Key()
 	}
 	var t, f interface{}
 	t = true
@@ -515,7 +526,7 @@ func createToggleFlag(c *ishell.Context) {
 	auth := api.GetAuthCtx(getToken(p.Config()))
 	flag, _, err := client.FeatureFlagsApi.PostFeatureFlag(auth, p.Project(), ldapi.FeatureFlagBody{
 		Name:       name,
-		Key:        key,
+		Key:        p.Key(),
 		Variations: []ldapi.Variation{{Value: &t}, {Value: &f}},
 	}, nil)
 	if err != nil {
@@ -615,7 +626,10 @@ func removeTag(c *ishell.Context) {
 }
 
 func on(c *ishell.Context) {
-	flagPath, _ := getFlagConfigArg(c, 0)
+	flagPath, flag := getFlagConfigArg(c, 0)
+	if flag == nil {
+		return
+	}
 	var patchComment ldapi.PatchComment
 	patchComment.Patch = []ldapi.PatchOperation{{
 		Op:    "replace",
@@ -909,7 +923,7 @@ func createFlag(c *ishell.Context) {
 func deleteFlag(c *ishell.Context) {
 	flagPath, flag := getFlagArg(c, 0)
 	if flag == nil {
-		c.Err(errors.New("flag-not-found"))
+		c.Err(errNotFound)
 		return
 	}
 
