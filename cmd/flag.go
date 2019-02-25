@@ -246,17 +246,14 @@ func flagEnvCompleter(args []string) (completions []string) {
 func getFlagArg(c *ishell.Context, pos int) (perProjectPath, *ldapi.FeatureFlag) { // nolint:dupl
 	var pathArg path.ResourcePath
 	if len(c.Args) > pos {
-		pathArg = path.ResourcePath(c.Args[pos])
-		if !pathArg.IsAbs() && pathArg.Depth() == 1 {
-			pathArg = path.NewAbsPath(currentConfig, currentProject, pathArg.Keys()[0])
-		}
+		pathArg = toAbsPath(c.Args[pos], currentConfig, currentProject)
 	} else {
-		flagKey, err := chooseFlagFromCurrentProject(c)
+		flagKey, err := chooseFlag(c, currentConfig, currentProject)
 		if err != nil {
 			c.Err(err)
 			return perProjectPath{}, nil
 		}
-		pathArg = path.NewAbsPath(currentConfig, currentProject, flagKey)
+		pathArg = toAbsPath(flagKey, currentConfig, currentProject)
 	}
 
 	realPath, err := realFlagPath(pathArg)
@@ -273,8 +270,8 @@ func getFlagArg(c *ishell.Context, pos int) (perProjectPath, *ldapi.FeatureFlag)
 	return realPath, flag
 }
 
-func chooseFlagFromCurrentProject(c *ishell.Context) (string, error) {
-	options, err := listFlagKeys(currentConfig, currentProject)
+func chooseFlag(c *ishell.Context, config *string, project string) (string, error) {
+	options, err := listFlagKeys(config, project)
 	if err != nil {
 		return "", err
 	}
@@ -288,17 +285,14 @@ func chooseFlagFromCurrentProject(c *ishell.Context) (string, error) {
 func getFlagConfigArg(c *ishell.Context, pos int) (perEnvironmentPath, *ldapi.FeatureFlag) { // nolint:dupl
 	var pathArg path.ResourcePath
 	if len(c.Args) > pos {
-		pathArg = path.ResourcePath(c.Args[pos])
-		if !pathArg.IsAbs() && pathArg.Depth() == 1 {
-			pathArg = path.NewAbsPath(currentConfig, currentProject, currentEnvironment, pathArg.Keys()[0])
-		}
+		pathArg = toAbsPath(pathArg.Keys()[0], currentConfig, currentProject, currentEnvironment)
 	} else {
-		flagKey, err := chooseFlagFromCurrentProject(c)
+		flagKey, err := chooseFlag(c, currentConfig, currentProject)
 		if err != nil {
 			c.Err(err)
 			return perEnvironmentPath{}, nil
 		}
-		pathArg = path.NewAbsPath(currentConfig, currentProject, flagKey)
+		pathArg = toAbsPath(flagKey, currentConfig, currentProject, currentEnvironment)
 	}
 
 	realPath, err := realFlagConfigPath(pathArg)
@@ -497,19 +491,18 @@ func createToggleFlag(c *ishell.Context) {
 		name = c.ReadLine()
 		p = perProjectPath{path.NewAbsPath(currentConfig, currentProject, key)}
 	case 1, 2:
-		bp := path.ResourcePath(c.Args[0])
-		if !bp.IsAbs() && bp.Depth() == 1 {
-			bp = path.NewAbsPath(currentConfig, currentProject, bp.Keys()[0])
-			fmt.Printf("Creating flag: %s", bp)
+		var err error
+		p, err = realFlagPath(toAbsPath(c.Args[0], currentConfig, currentProject))
+		if err != nil {
+			c.Err(err)
 		}
-		if bp.Depth() != 2 {
+		if p.Depth() != 2 {
 			c.Err(errors.New("invalid path"))
 			return
 		}
 		if len(c.Args) > 1 {
 			name = c.Args[1]
 		}
-		p = perProjectPath{bp}
 	}
 	if name == "" {
 		name = p.Key()
@@ -710,7 +703,7 @@ func rollout(c *ishell.Context) {
 	}
 
 	var patches []ldapi.PatchOperation
-	originalFallthrough := originalFlag.Environments[currentEnvironment].Fallthrough_
+	originalFallthrough := originalFlag.Environments[flagPath.Environment()].Fallthrough_
 	if originalFallthrough.Rollout == nil {
 		patches = append(patches, ldapi.PatchOperation{
 			Op:   "remove",
@@ -832,7 +825,7 @@ func fallthru(c *ishell.Context) {
 	}
 
 	var patches []ldapi.PatchOperation
-	originalFallthrough := originalFlag.Environments[currentEnvironment].Fallthrough_
+	originalFallthrough := originalFlag.Environments[flagPath.Environment()].Fallthrough_
 	if originalFallthrough.Rollout != nil {
 		patches = append(patches, ldapi.PatchOperation{
 			Op:   "remove",
@@ -854,7 +847,7 @@ func fallthru(c *ishell.Context) {
 		return
 	}
 
-	final := patchedFlag.Environments[currentEnvironment].Fallthrough_.Variation
+	final := patchedFlag.Environments[flagPath.Environment()].Fallthrough_.Variation
 	printJSON(c, final)
 }
 

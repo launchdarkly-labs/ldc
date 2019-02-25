@@ -3,7 +3,6 @@ package cmd
 import (
 	"bytes"
 	"errors"
-	"fmt"
 
 	"github.com/launchdarkly/ldc/cmd/internal/path"
 
@@ -157,28 +156,44 @@ func projectCompleter(args []string) (completions []string) {
 }
 
 func getProjectArg(c *ishell.Context) (projPath, *ldapi.Project) {
-	var pathArg path.ResourcePath
+	var err error
+	var realPath projPath
 	if len(c.Args) > 0 {
-		pathArg = path.ResourcePath(c.Args[0])
-	} else {
-		proj, err := chooseProjectFromCurrentConfig(c)
+		realPath, err = realProjPath(toAbsPath(c.Args[0], currentConfig))
 		if err != nil {
 			c.Err(err)
 			return projPath{}, nil
 		}
-		pathArg = path.NewAbsPath(currentConfig, proj.Key)
+		auth := api.GetAuthCtx(getToken(realPath.Config()))
+		client, err := api.GetClient(getServer(realPath.Config()))
+		if err != nil {
+			c.Err(err)
+			return projPath{}, nil
+		}
+		proj, _, err := client.ProjectsApi.GetProject(auth, realPath.Key())
+		if err != nil {
+			c.Err(err)
+			return projPath{}, nil
+		}
+		return realPath, &proj
 	}
 
-	realPath, err := realProjPath(pathArg)
+	proj, err := chooseProject(c, currentConfig)
 	if err != nil {
 		c.Err(err)
 		return projPath{}, nil
 	}
-	return realPath, nil
+	realPath, err = realProjPath(toAbsPath(proj.Key, currentConfig))
+
+	if err != nil {
+		c.Err(err)
+		return projPath{}, nil
+	}
+	return realPath, proj
 }
 
-func chooseProjectFromCurrentConfig(c *ishell.Context) (*ldapi.Project, error) {
-	projects, err := listProjects(currentConfig)
+func chooseProject(c *ishell.Context, config *string) (*ldapi.Project, error) {
+	projects, err := listProjects(config)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +204,7 @@ func chooseProjectFromCurrentConfig(c *ishell.Context) (*ldapi.Project, error) {
 				return &project, nil // nolint:scopelint // ok because we return immediately
 			}
 		}
-		return nil, fmt.Errorf("unknown project")
+		return nil, errNotFound
 	}
 
 	options := keysForProjects(projects)
@@ -202,14 +217,19 @@ func chooseProjectFromCurrentConfig(c *ishell.Context) (*ldapi.Project, error) {
 }
 
 func createProject(c *ishell.Context) {
-	var key, name string
+	var name string
 	var p projPath
 	switch len(c.Args) {
 	case 0:
 		c.Err(errors.New("please supply at least a key for the new environment"))
 		return
 	case 1, 2:
-		p = projPath{path.ResourcePath(c.Args[0])}
+		var err error
+		p, err = realProjPath(toAbsPath(c.Args[0], currentConfig))
+		if err != nil {
+			c.Err(err)
+			return
+		}
 		if p.Depth() != 1 {
 			c.Err(errors.New("invalid path"))
 		}
@@ -230,14 +250,14 @@ func createProject(c *ishell.Context) {
 	}
 	auth := api.GetAuthCtx(getToken(p.Config()))
 
-	if _, err := client.ProjectsApi.PostProject(auth, ldapi.ProjectBody{Key: key, Name: name}); err != nil {
+	if _, err := client.ProjectsApi.PostProject(auth, ldapi.ProjectBody{Key: p.Key(), Name: name}); err != nil {
 		c.Err(err)
 		return
 	}
 	if !renderJSON(c) {
-		c.Printf("Created project %s\n", key)
+		c.Printf("Created project %s\n", p.Key())
 	}
-	project, _, err := client.ProjectsApi.GetProject(auth, key)
+	project, _, err := client.ProjectsApi.GetProject(auth, p.Key())
 	if err != nil {
 		c.Err(err)
 		return
@@ -252,7 +272,7 @@ func createProject(c *ishell.Context) {
 func deleteProject(c *ishell.Context) {
 	projPath, project := getProjectArg(c)
 	if project == nil {
-		c.Err(fmt.Errorf("unknown project"))
+		c.Err(errNotFound)
 		return
 	}
 	if !confirmDelete(c, "project key", project.Key) {

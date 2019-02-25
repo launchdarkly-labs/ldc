@@ -22,6 +22,8 @@ const (
 	Custom = "custom"
 	// PageView indicates a page view goal
 	PageView = "pageview"
+
+	defaultServerURL = "https://app.launchdarkly.com"
 )
 
 // Kinds are all the kinds that we can use for a goal
@@ -146,7 +148,11 @@ func NewContext(host, token string) Context {
 }
 
 func newRequest(ctx Context, method, path string, body io.Reader) (*http.Request, error) {
-	u, _ := url.Parse(ctx.host)
+	host := ctx.host
+	if host == "" {
+		host = defaultServerURL
+	}
+	u, _ := url.Parse(host)
 	u.Path = path
 	u.RawPath = ""
 	req, err := http.NewRequest(method, u.String(), body)
@@ -249,7 +255,7 @@ func CreateGoal(ctx Context, goal Goal) (*Goal, error) {
 	_ = resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("unexpected response: %s", resp.Status)
+		return nil, fmt.Errorf("unexpected response (%s): %s", resp.Status, respBody)
 	}
 
 	var newGoal Goal
@@ -269,7 +275,8 @@ func DeleteGoal(ctx Context, id string) error {
 	}
 
 	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("unexpected response: %s", resp.Status)
+		respBody, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected response (%s): %s", resp.Status, respBody)
 	}
 
 	return nil
