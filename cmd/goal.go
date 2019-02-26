@@ -105,7 +105,7 @@ func getGoalArg(c *ishell.Context) (goalPath, *goalapi.Goal) {
 	var realPath goalPath
 	if len(c.Args) > 0 {
 		var err error
-		realPath, err = realGoalPath(toAbsPath(c.Args[0], currentConfig, currentProject, currentEnvironment))
+		realPath, err = realGoalPath(c.Args[0])
 		if err != nil {
 			c.Err(err)
 			return goalPath{}, nil
@@ -141,7 +141,7 @@ func getGoalArg(c *ishell.Context) (goalPath, *goalapi.Goal) {
 			return goalPath{}, nil
 		}
 
-		realPath, err = realGoalPath(toAbsPath(*goal.Key, currentConfig, currentProject, currentEnvironment))
+		realPath, err = realGoalPath(*goal.Key)
 		if err != nil {
 			c.Err(err)
 			return goalPath{}, nil
@@ -349,7 +349,7 @@ func createCustomGoal(c *ishell.Context) {
 	var key string
 	if len(c.Args) > 1 {
 		var err error
-		p, err = realGoalPath(toAbsPath(c.Args[0], currentConfig, currentProject, currentEnvironment))
+		p, err = realGoalPath(c.Args[0])
 		if err != nil {
 			c.Err(err)
 			return
@@ -361,7 +361,7 @@ func createCustomGoal(c *ishell.Context) {
 		c.Print("Key: ")
 		key = c.ReadLine()
 		var err error
-		p, err = realGoalPath(toAbsPath(name, currentConfig, currentProject, currentEnvironment))
+		p, err = realGoalPath(name)
 		if err != nil {
 			c.Err(err)
 			return
@@ -572,7 +572,8 @@ func floatToStr(f float64) string {
 	return fmt.Sprintf("%f", f)
 }
 
-func realGoalPath(p path.ResourcePath) (goalPath, error) {
+func realGoalPath(rawPath string) (goalPath, error) {
+	p := toAbsPath(rawPath, currentConfig, currentProject, currentEnvironment)
 	if p.Depth() != 3 {
 		return goalPath{}, errors.New("invalid path")
 	}

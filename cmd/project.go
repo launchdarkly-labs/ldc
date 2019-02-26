@@ -159,7 +159,7 @@ func getProjectArg(c *ishell.Context) (projPath, *ldapi.Project) {
 	var err error
 	var realPath projPath
 	if len(c.Args) > 0 {
-		realPath, err = realProjPath(toAbsPath(c.Args[0], currentConfig))
+		realPath, err = realProjPath(c.Args[0])
 		if err != nil {
 			c.Err(err)
 			return projPath{}, nil
@@ -183,8 +183,7 @@ func getProjectArg(c *ishell.Context) (projPath, *ldapi.Project) {
 		c.Err(err)
 		return projPath{}, nil
 	}
-	realPath, err = realProjPath(toAbsPath(proj.Key, currentConfig))
-
+	realPath, err = realProjPath(proj.Key)
 	if err != nil {
 		c.Err(err)
 		return projPath{}, nil
@@ -225,7 +224,7 @@ func createProject(c *ishell.Context) {
 		return
 	case 1, 2:
 		var err error
-		p, err = realProjPath(toAbsPath(c.Args[0], currentConfig))
+		p, err = realProjPath(c.Args[0])
 		if err != nil {
 			c.Err(err)
 			return
@@ -301,7 +300,8 @@ func keysForProjects(projects []ldapi.Project) (keys []string) {
 	return keys
 }
 
-func realProjPath(p path.ResourcePath) (projPath, error) {
+func realProjPath(rawPath string) (projPath, error) {
+	p := toAbsPath(rawPath, currentConfig)
 	if p.Depth() != 1 {
 		return projPath{}, errors.New("invalid path")
 	}

@@ -162,7 +162,8 @@ func (p perProjectPath) Key() string {
 	return p.Keys()[1]
 }
 
-func realFlagPath(p path.ResourcePath) (perProjectPath, error) {
+func realFlagPath(rawPath string) (perProjectPath, error) {
+	p := toAbsPath(rawPath, currentConfig, currentProject)
 	if len(p.Keys()) != 2 {
 		return perProjectPath{}, errors.New("invalid path")
 	}
@@ -193,7 +194,8 @@ func (p perEnvironmentPath) PerProjectPath() perProjectPath {
 	return perProjectPath{path.NewAbsPath(p.Config(), p.Project(), p.Key())}
 }
 
-func realFlagConfigPath(p path.ResourcePath) (perEnvironmentPath, error) {
+func realFlagConfigPath(rawPath string) (perEnvironmentPath, error) {
+	p := toAbsPath(rawPath, currentConfig, currentProject, currentEnvironment)
 	if len(p.Keys()) != 3 {
 		return perEnvironmentPath{}, errors.New("invalid path")
 	}
@@ -244,16 +246,16 @@ func flagEnvCompleter(args []string) (completions []string) {
 }
 
 func getFlagArg(c *ishell.Context, pos int) (perProjectPath, *ldapi.FeatureFlag) { // nolint:dupl
-	var pathArg path.ResourcePath
+	var pathArg string
 	if len(c.Args) > pos {
-		pathArg = toAbsPath(c.Args[pos], currentConfig, currentProject)
+		pathArg = c.Args[pos]
 	} else {
 		flagKey, err := chooseFlag(c, currentConfig, currentProject)
 		if err != nil {
 			c.Err(err)
 			return perProjectPath{}, nil
 		}
-		pathArg = toAbsPath(flagKey, currentConfig, currentProject)
+		pathArg = flagKey
 	}
 
 	realPath, err := realFlagPath(pathArg)
@@ -283,16 +285,16 @@ func chooseFlag(c *ishell.Context, config *string, project string) (string, erro
 }
 
 func getFlagConfigArg(c *ishell.Context, pos int) (perEnvironmentPath, *ldapi.FeatureFlag) { // nolint:dupl
-	var pathArg path.ResourcePath
+	var pathArg string
 	if len(c.Args) > pos {
-		pathArg = toAbsPath(pathArg.Keys()[0], currentConfig, currentProject, currentEnvironment)
+		pathArg = c.Args[0]
 	} else {
 		flagKey, err := chooseFlag(c, currentConfig, currentProject)
 		if err != nil {
 			c.Err(err)
 			return perEnvironmentPath{}, nil
 		}
-		pathArg = toAbsPath(flagKey, currentConfig, currentProject, currentEnvironment)
+		pathArg = flagKey
 	}
 
 	realPath, err := realFlagConfigPath(pathArg)
@@ -395,7 +397,7 @@ func showFlags(c *ishell.Context) {
 			renderFlag(c, *flag)
 			return
 		case p.Depth() == 1:
-			realPath, err := realProjPath(p)
+			realPath, err := realProjPath(c.Args[0])
 			if err != nil {
 				c.Err(err)
 				return
@@ -492,7 +494,7 @@ func createToggleFlag(c *ishell.Context) {
 		p = perProjectPath{path.NewAbsPath(currentConfig, currentProject, key)}
 	case 1, 2:
 		var err error
-		p, err = realFlagPath(toAbsPath(c.Args[0], currentConfig, currentProject))
+		p, err = realFlagPath(c.Args[0])
 		if err != nil {
 			c.Err(err)
 		}

@@ -173,7 +173,7 @@ func environmentCompleter(args []string) (completions []string) {
 
 func getEnvironmentArg(c *ishell.Context) (perProjectPath, *ldapi.Environment) {
 	if len(c.Args) > 0 {
-		realPath, err := realEnvPath(toAbsPath(c.Args[0], currentConfig, currentProject))
+		realPath, err := realEnvPath(c.Args[0])
 		if err != nil {
 			c.Err(err)
 			return perProjectPath{}, nil
@@ -197,7 +197,7 @@ func getEnvironmentArg(c *ishell.Context) (perProjectPath, *ldapi.Environment) {
 		c.Err(err)
 		return perProjectPath{}, nil
 	}
-	realPath, err := realEnvPath(toAbsPath(env.Key, currentConfig, currentProject))
+	realPath, err := realEnvPath(env.Key)
 	if err != nil {
 		c.Err(err)
 		return perProjectPath{}, nil
@@ -238,7 +238,7 @@ func createEnvironment(c *ishell.Context) {
 		return
 	case 1, 2:
 		var err error
-		p, err = realEnvPath(toAbsPath(c.Args[0], currentConfig, currentProject))
+		p, err = realEnvPath(c.Args[0])
 		if err != nil {
 			c.Err(err)
 			return
@@ -300,7 +300,8 @@ func keysForEnvironments(environments []ldapi.Environment) (keys []string) {
 	return keys
 }
 
-func realEnvPath(p path.ResourcePath) (perProjectPath, error) {
+func realEnvPath(rawPath string) (perProjectPath, error) {
+	p := toAbsPath(rawPath, currentConfig, currentProject)
 	if p.Depth() != 2 {
 		return perProjectPath{}, errors.New("invalid path")
 	}
