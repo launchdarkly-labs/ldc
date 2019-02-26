@@ -38,7 +38,7 @@ PROJECT_NAME="ldc-test"
 @test "smoke test for setting up goals on flag" {
     $COMMAND flags create "$FLAG_KEY" "ldc at $DATE"
     $COMMAND flags on "$FLAG_KEY"
-#    $COMMAND flags rollout "$FLAG_KEY" 0:true:50 1:false:50
+    $COMMAND flags rollout "$FLAG_KEY" 0:true:50 1:false:50
     $COMMAND flags off "$FLAG_KEY"
 
     $COMMAND goals create custom "$GOAL_NAME" event-key
