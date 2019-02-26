@@ -14,6 +14,7 @@ import (
 	ishell "gopkg.in/abiosoft/ishell.v2"
 
 	ldapi "github.com/launchdarkly/api-client-go"
+	"github.com/launchdarkly/ldc/cmd/internal/path"
 )
 
 const (
@@ -236,4 +237,12 @@ func ifNotBlank(s string, defaultValue string) string {
 		return defaultValue
 	}
 	return s
+}
+
+func toAbsPath(p string, config *string, defaultParentPath ...string) path.ResourcePath {
+	rp := path.ResourcePath(p)
+	if !rp.IsAbs() && rp.Depth() == 1 {
+		return path.NewAbsPath(config, append(defaultParentPath, p)...)
+	}
+	return rp
 }

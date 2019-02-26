@@ -172,28 +172,41 @@ func environmentCompleter(args []string) (completions []string) {
 }
 
 func getEnvironmentArg(c *ishell.Context) (perProjectPath, *ldapi.Environment) {
-	var pathArg path.ResourcePath
 	if len(c.Args) > 0 {
-		pathArg = path.ResourcePath(c.Args[0])
-	} else {
-		env, err := chooseEnvironmentFromCurrentProject(c)
+		realPath, err := realEnvPath(c.Args[0])
 		if err != nil {
 			c.Err(err)
 			return perProjectPath{}, nil
 		}
-		pathArg = path.NewAbsPath(currentConfig, currentProject, env.Key)
+		auth := api.GetAuthCtx(getToken(realPath.Config()))
+		client, err := api.GetClient(getServer(realPath.Config()))
+		if err != nil {
+			c.Err(err)
+			return perProjectPath{}, nil
+		}
+		env, _, err := client.EnvironmentsApi.GetEnvironment(auth, realPath.Project(), realPath.Key())
+		if err != nil {
+			c.Err(err)
+			return perProjectPath{}, nil
+		}
+		return realPath, &env
 	}
 
-	realPath, err := realEnvPath(pathArg)
+	env, err := chooseEnvironment(c, currentConfig, currentProject)
 	if err != nil {
 		c.Err(err)
 		return perProjectPath{}, nil
 	}
-	return realPath, nil
+	realPath, err := realEnvPath(env.Key)
+	if err != nil {
+		c.Err(err)
+		return perProjectPath{}, nil
+	}
+	return realPath, env
 }
 
-func chooseEnvironmentFromCurrentProject(c *ishell.Context) (*ldapi.Environment, error) {
-	environments, err := listEnvironments(currentConfig, currentProject)
+func chooseEnvironment(c *ishell.Context, config *string, project string) (*ldapi.Environment, error) {
+	environments, err := listEnvironments(config, project)
 	if err != nil {
 		return nil, err
 	}
@@ -217,16 +230,18 @@ func chooseEnvironmentFromCurrentProject(c *ishell.Context) (*ldapi.Environment,
 }
 
 func createEnvironment(c *ishell.Context) {
-	var key, name string
+	var name string
 	var p perProjectPath
 	switch len(c.Args) {
 	case 0:
 		c.Err(errors.New("please supply at least a key for the new environment"))
 		return
 	case 1, 2:
-		p = perProjectPath{path.ResourcePath(c.Args[0])}
-		if p.Depth() != 2 {
-			c.Err(errors.New("invalid path"))
+		var err error
+		p, err = realEnvPath(c.Args[0])
+		if err != nil {
+			c.Err(err)
+			return
 		}
 		if len(c.Args) > 1 {
 			name = c.Args[1]
@@ -242,6 +257,7 @@ func createEnvironment(c *ishell.Context) {
 		c.Err(err)
 		return
 	}
+	key := p.Key()
 	auth := api.GetAuthCtx(getToken(p.Config()))
 	_, err = client.EnvironmentsApi.PostEnvironment(auth, p.Project(), ldapi.EnvironmentPost{Key: key, Name: name, Color: "000000"})
 	if err != nil {
@@ -284,7 +300,8 @@ func keysForEnvironments(environments []ldapi.Environment) (keys []string) {
 	return keys
 }
 
-func realEnvPath(p path.ResourcePath) (perProjectPath, error) {
+func realEnvPath(rawPath string) (perProjectPath, error) {
+	p := toAbsPath(rawPath, currentConfig, currentProject)
 	if p.Depth() != 2 {
 		return perProjectPath{}, errors.New("invalid path")
 	}

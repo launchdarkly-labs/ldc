@@ -17,7 +17,13 @@ defaults:
   build_steps: &build_steps
     steps:
       - checkout
-      - run: go get -u $COMMON_GO_PACKAGES
+      - run:
+          name: Set up bats
+          command: |
+            git clone https://github.com/sstephenson/bats.git ~/bats
+            cd ~/bats
+            sudo ./install.sh /usr/local
+      - run: GO111MODULE=off go get -u $COMMON_GO_PACKAGES
       - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
       - run: go mod verify
       - run: sudo apt-get install python-pip
@@ -43,6 +49,10 @@ defaults:
               ./cc-test-reporter format-coverage $CIRCLE_ARTIFACTS/coverage.txt -t gocov --output $CIRCLE_ARTIFACTS/coverage.json
               ./cc-test-reporter upload-coverage --input $CIRCLE_ARTIFACTS/coverage.json
             fi
+      - run:
+          name: Run integration tests
+          command: |
+            make integration-test
       - run:
           name: Generate coverage report
           command: |

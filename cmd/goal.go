@@ -102,10 +102,10 @@ func (p goalPath) EnvPath() perProjectPath {
 
 func getGoalArg(c *ishell.Context) (goalPath, *goalapi.Goal) {
 	var goal *goalapi.Goal
-	var realPath path.ResourcePath
+	var realPath goalPath
 	if len(c.Args) > 0 {
-		pathArg := path.ResourcePath(c.Args[0])
-		realPath, err := realGoalPath(pathArg)
+		var err error
+		realPath, err = realGoalPath(c.Args[0])
 		if err != nil {
 			c.Err(err)
 			return goalPath{}, nil
@@ -135,19 +135,24 @@ func getGoalArg(c *ishell.Context) (goalPath, *goalapi.Goal) {
 			}
 		}
 	} else {
-		goal, err := chooseGoalFromCurrentEnvironment(c)
+		goal, err := chooseGoal(c, currentConfig, currentProject, currentEnvironment)
 		if err != nil {
 			c.Err(err)
 			return goalPath{}, nil
 		}
-		realPath = path.NewAbsPath(currentConfig, currentProject, currentEnvironment, *goal.Key)
+
+		realPath, err = realGoalPath(*goal.Key)
+		if err != nil {
+			c.Err(err)
+			return goalPath{}, nil
+		}
 	}
 
-	return goalPath{perEnvironmentPath{realPath}}, goal
+	return realPath, goal
 }
 
-func chooseGoalFromCurrentEnvironment(c *ishell.Context) (goal *goalapi.Goal, err error) {
-	envPath := perProjectPath{ResourcePath: path.NewAbsPath(currentConfig, currentProject, currentEnvironment)}
+func chooseGoal(c *ishell.Context, config *string, project string, env string) (goal *goalapi.Goal, err error) {
+	envPath := perProjectPath{ResourcePath: path.NewAbsPath(config, project, env)}
 	ctx, err := newGoalAPIContext(envPath)
 	if err != nil {
 		return nil, err
@@ -343,14 +348,24 @@ func createCustomGoal(c *ishell.Context) {
 	var p goalPath
 	var key string
 	if len(c.Args) > 1 {
-		p = goalPath{perEnvironmentPath{path.ResourcePath(c.Args[0])}}
+		var err error
+		p, err = realGoalPath(c.Args[0])
+		if err != nil {
+			c.Err(err)
+			return
+		}
 		key = c.Args[1]
 	} else {
 		c.Print("Name: ")
 		name := c.ReadLine()
 		c.Print("Key: ")
 		key = c.ReadLine()
-		p = goalPath{perEnvironmentPath{path.NewAbsPath(currentConfig, currentProject, currentEnvironment, name)}}
+		var err error
+		p, err = realGoalPath(name)
+		if err != nil {
+			c.Err(err)
+			return
+		}
 	}
 	goal := goalapi.Goal{
 		Name: p.Key(),
@@ -380,6 +395,10 @@ func createCustomGoal(c *ishell.Context) {
 
 func deleteGoal(c *ishell.Context) {
 	p, goal := getGoalArg(c)
+	if goal == nil {
+		c.Err(errNotFound)
+		return
+	}
 
 	ctx, err := newGoalAPIContext(p.EnvPath())
 	if err != nil {
@@ -405,7 +424,15 @@ func boolToCheck(b bool) string {
 func attachGoal(c *ishell.Context) {
 	var flag *ldapi.FeatureFlag
 	goalPath, goal := getGoalArg(c)
+	if goal == nil {
+		c.Err(errors.New("goal not found"))
+		return
+	}
 	_, flag = getFlagArg(c, 1)
+	if flag == nil {
+		c.Err(errors.New("flag not found"))
+		return
+	}
 
 	for _, g := range flag.GoalIds {
 		if g == goal.ID {
@@ -545,8 +572,9 @@ func floatToStr(f float64) string {
 	return fmt.Sprintf("%f", f)
 }
 
-func realGoalPath(p path.ResourcePath) (goalPath, error) {
-	if p.Depth() != 2 {
+func realGoalPath(rawPath string) (goalPath, error) {
+	p := toAbsPath(rawPath, currentConfig, currentProject, currentEnvironment)
+	if p.Depth() != 3 {
 		return goalPath{}, errors.New("invalid path")
 	}
 	np, err := path.ReplaceDefaults(p, getDefaultPath, 2)

@@ -12,6 +12,8 @@ import (
 	ldapi "github.com/launchdarkly/api-client-go"
 )
 
+const defaultServerURL = "https://app.launchdarkly.com"
+
 // HTTPClient is an underlying http client with logging transport
 var HTTPClient *http.Client
 
@@ -58,6 +60,9 @@ func Initialize(userAgent string) {
 
 // GetClient returns a client for the given server
 func GetClient(server string) (*ldapi.APIClient, error) {
+	if server == "" {
+		server = defaultServerURL
+	}
 	url, err := url.Parse(server)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parser server: %s", err)

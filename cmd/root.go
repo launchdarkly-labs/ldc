@@ -23,7 +23,7 @@ var currentToken string
 var currentProject string
 var currentEnvironment string
 
-var cfgFile string
+var configFileName string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -65,6 +65,7 @@ func init() {
 	pflag.String("project", "", "Project key")
 	pflag.String("environment", "", "Environment key")
 	pflag.String("config", "", "Configuration to use")
+	pflag.String("config-file", "", "Configuration file to use")
 	pflag.Bool("json", false, "Return json")
 	pflag.Bool("debug", false, "Enable debugging")
 	pflag.Parse()
@@ -75,6 +76,7 @@ func init() {
 	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
 		panic(err)
 	}
+	configFileName = viper.GetString("config-file")
 }
 
 func preRunCmd(cmd *cobra.Command, args []string) {

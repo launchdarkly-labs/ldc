@@ -32,9 +32,9 @@ var configViper *viper.Viper
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	configViper = viper.New()
-	if cfgFile != "" {
+	if configFileName != "" {
 		// Use config file from the flag.
-		configViper.SetConfigFile(cfgFile)
+		configViper.SetConfigFile(configFileName)
 	} else {
 		// Find home directory.
 		home, err := homedir.Dir()
@@ -59,6 +59,8 @@ func reloadConfigFile() {
 			fmt.Fprintf(os.Stderr, "Unable to parse config file: %s", err)
 			os.Exit(1)
 		}
+	} else {
+		fmt.Fprintf(os.Stderr, "Error loading config file: %s\n", err)
 	}
 }
 
@@ -171,8 +173,9 @@ func selectConfig(c *ishell.Context) {
 
 func setConfig(name string, config config) {
 	currentConfig = &name
-	if config.Server != "" {
-		currentServer = config.Server
+	currentServer = config.Server
+	if config.Server == "" {
+		currentServer = viper.GetString("server")
 	}
 	currentProject = config.DefaultProject
 	currentEnvironment = config.DefaultEnvironment
