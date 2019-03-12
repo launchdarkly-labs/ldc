@@ -1,7 +1,6 @@
 package path
 
 import (
-	"fmt"
 	"sort"
 )
 
@@ -123,7 +122,6 @@ func (c *Completer) GetCompletions(arg string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("Got option: %+v", options)
 
 	var results []string
 	for _, r := range options {
