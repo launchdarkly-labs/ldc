@@ -1,6 +1,6 @@
 repos:
 - repo: https://github.com/golangci/golangci-lint
-  rev: v1.13.2
+  rev: v1.16.0
   hooks:
   - id: golangci-lint
     name: golangci-lint
@@ -11,6 +11,6 @@ repos:
     pass_filenames: false
 
 - repo: git://github.com/dnephin/pre-commit-golang
-  sha: HEAD
+  rev: v0.3.3
   hooks:
     - id: go-unit-tests
