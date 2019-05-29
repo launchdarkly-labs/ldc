@@ -53,14 +53,20 @@ func initConfig() {
 }
 
 func reloadConfigFile() {
-	configFile = nil
-	if err := configViper.ReadInConfig(); err == nil {
-		if err := configViper.Unmarshal(&configFile); err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to parse config file: %s", err)
-			os.Exit(1)
+	if err := configViper.ReadInConfig(); err != nil {
+		configFileExpected := configFileName != ""
+		_, errIsNotFound := err.(viper.ConfigFileNotFoundError)
+		if !configFileExpected && errIsNotFound {
+			return
 		}
-	} else {
 		fmt.Fprintf(os.Stderr, "Error loading config file: %s\n", err)
+		os.Exit(1)
+	}
+
+	configFile = nil
+	if err := configViper.Unmarshal(&configFile); err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to parse config file: %s", err)
+		os.Exit(1)
 	}
 }
 
