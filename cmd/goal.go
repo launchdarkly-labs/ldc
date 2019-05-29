@@ -163,9 +163,6 @@ func chooseGoal(c *ishell.Context, config *string, project string, env string) (
 	for _, g := range goals {
 		options = append(options, g.Name)
 	}
-	if err != nil {
-		return nil, err
-	}
 	choice := c.MultiChoice(options, "Choose a goal: ")
 	if choice < 0 {
 		return nil, err
