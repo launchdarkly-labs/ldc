@@ -59,7 +59,7 @@ func reloadConfigFile() {
 			fmt.Fprintf(os.Stderr, "Unable to parse config file: %s", err)
 			os.Exit(1)
 		}
-	} else {
+	} else if _, notFound := err.(viper.ConfigFileNotFoundError); !notFound {
 		fmt.Fprintf(os.Stderr, "Error loading config file: %s\n", err)
 	}
 }
