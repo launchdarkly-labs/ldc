@@ -15,8 +15,13 @@ const LD_BLUE_HEX = '405BFF';
 const LD_PURPLE_HEX = 'A34FDE';
 
 const configNameGenerator: Fig.Generator = {
-  //TODO this should optionally use a config specified with --config
-  script: "jq 'keys' ~/.config/ldc.json",
+  script(context) {
+    let cmd = "jq 'keys'";
+    const configFile = getOptionFromContext(context, configFileOpt) || '~/.config/ldc.json';
+    cmd += ` ${configFile}`;
+
+    return cmd
+  },
   postProcess: (out) => {
     const configs: Array<string> = JSON.parse(out);
 
