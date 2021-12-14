@@ -1,6 +1,7 @@
 // Brand colors
 const LD_BLUE_HEX = '405BFF';
 const LD_CYAN_HEX = '3DD6F5';
+const LD_PURPLE_HEX = 'A34FDE';
 
 const configNameGenerator: Fig.Generator = {
   //TODO this should optionally use a config specified with --config
@@ -80,6 +81,41 @@ const environmentGenerator: Fig.Generator = {
           insertValue: key,
           description: name,
           icon: `fig://template?color=${LD_CYAN_HEX}&badge=E`
+        });
+      }
+
+      return acc;
+    }, []);
+  },
+};
+
+const flagGenerator: Fig.Generator = {
+  script(context) {
+    let cmd = './run.sh flags list';
+    const config = getOptionFromContext(context, configOpt);
+    if (config) {
+      cmd += ` --config ${config}`;
+    }
+    const configFile = getOptionFromContext(context, configFileOpt);
+    if (configFile) {
+      cmd += ` --config-file ${configFile}`;
+    }
+
+    return cmd;
+  },
+  postProcess(out) {
+    return out.split("\n").reduce((acc, line) => {
+      const match = line.match(
+        /^\| (?<key>[^\s]+) +\| (?<name>.+\b)\s+\| (?<partialDescription>.+)\|/
+      );
+  
+      if (match !== null) {
+        const { key, name } = match.groups;
+        acc.push({
+          name: key,
+          insertValue: key,
+          description: name,
+          icon: `fig://template?color=${LD_PURPLE_HEX}&badge=⚑`
         });
       }
 
@@ -318,7 +354,7 @@ const completionSpec: Fig.Spec = {
           args: [
             {
               name: "flag key",
-              // generators: environmentGenerator,
+              generators: flagGenerator,
               debounce: true,
             },
           ],
@@ -347,6 +383,8 @@ const completionSpec: Fig.Spec = {
           args: [
             {
               name: "flag key",
+              generators: flagGenerator,
+              debounce: true,
             },
             {
               name: "tag",
@@ -359,6 +397,8 @@ const completionSpec: Fig.Spec = {
           args: [
             {
               name: "flag key",
+              generators: flagGenerator,
+              debounce: true,
             },
             {
               name: "tag",
@@ -371,6 +411,8 @@ const completionSpec: Fig.Spec = {
           args: [
             {
               name: "flag key",
+              generators: flagGenerator,
+              debounce: true,
             },
           ],
         },
@@ -380,6 +422,8 @@ const completionSpec: Fig.Spec = {
           args: [
             {
               name: "flag key",
+              generators: flagGenerator,
+              debounce: true,
             },
           ],
         },
@@ -389,6 +433,8 @@ const completionSpec: Fig.Spec = {
           args: [
             {
               name: "flag key",
+              generators: flagGenerator,
+              debounce: true,
             },
           ],
         },
@@ -399,7 +445,7 @@ const completionSpec: Fig.Spec = {
             {
               name: "flag key",
               isDangerous: true,
-              // generators: environmentGenerator,
+              generators: flagGenerator,
               debounce: true,
             },
           ],
