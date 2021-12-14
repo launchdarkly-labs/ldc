@@ -1,23 +1,18 @@
-const configArgs: Fig.Arg[] = [
-  {
-    name: "config name",
-  },
-  {
-    name: "api token",
-  },
-  {
-    name: "project",
-    description: "default project key",
-  },
-  {
-    name: "environment",
-    description: "default environment key",
-  },
-  {
-    name: "server url",
-    isOptional: true,
-  },
-];
+const configNameGenerator: Fig.Generator = {
+  //TODO this should optionally use a config specified with --config
+  script: "jq 'keys' ~/.config/ldc.json",
+  postProcess: (out) => {
+    const configs: Array<string> = JSON.parse(out);
+
+    return configs.map<Fig.Suggestion>((item) => {
+      return {
+        name: item,
+        insertValue: item,
+        description: item,
+      };
+    });
+  }
+}
 
 const completionSpec: Fig.Spec = {
   name: "ldc",
@@ -30,7 +25,26 @@ const completionSpec: Fig.Spec = {
         {
           name: "add",
           description: "add config <config name> <api token> <project> <environment> [server url]",
-          args: configArgs,
+          args: [
+            {
+              name: "config name",
+            },
+            {
+              name: "api token",
+            },
+            {
+              name: "project",
+              description: "default project key",
+            },
+            {
+              name: "environment",
+              description: "default environment key",
+            },
+            {
+              name: "server url",
+              isOptional: true,
+            },
+          ],
         },
         {
           name: "set",
@@ -38,6 +52,7 @@ const completionSpec: Fig.Spec = {
           args: [
             {
               name: "config name",
+              generators: configNameGenerator,
             },
           ],
         },
@@ -47,6 +62,7 @@ const completionSpec: Fig.Spec = {
           args: [
             {
               name: "config name",
+              generators: configNameGenerator,
             },
             {
               name: "new name",
@@ -56,7 +72,27 @@ const completionSpec: Fig.Spec = {
         {
           name: "edit",
           description: "Update config: <config name> <api token> <project> <environment> [server url]",
-          args: configArgs,
+          args: [
+            {
+              name: "config name",
+              generators: configNameGenerator,
+            },
+            {
+              name: "api token",
+            },
+            {
+              name: "project",
+              description: "default project key",
+            },
+            {
+              name: "environment",
+              description: "default environment key",
+            },
+            {
+              name: "server url",
+              isOptional: true,
+            },
+          ],
         },
         {
           name: "rm",
@@ -64,6 +100,7 @@ const completionSpec: Fig.Spec = {
           args: [
             {
               name: "config name",
+              generators: configNameGenerator,
             },
           ],
         },
