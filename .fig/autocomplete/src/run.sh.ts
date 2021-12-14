@@ -304,6 +304,108 @@ const completionSpec: Fig.Spec = {
         },
       ],
     },
+    {
+      name: ["flags", "flag"],
+      description: "Create, list, view, and delete flags",
+      subcommands: [
+        {
+          name: ["list", "ls", "l"],
+          description: "List flags",
+        },
+        {
+          name: "show",
+          description: "View flag details",
+          args: [
+            {
+              name: "flag key",
+              // generators: environmentGenerator,
+              debounce: true,
+            },
+          ],
+        },
+        {
+          name: ["create", "new"],
+          description: "Create a flag",
+          args: [
+            {
+              name: "flag key",
+            },
+          ],
+        },
+        {
+          name: ["create-toggle", "new-toggle", "create-boolean"],
+          description: "Create a boolean flag",
+          args: [
+            {
+              name: "flag key",
+            },
+          ],
+        },
+        {
+          name: "add-tag",
+          description: "Add a tag to a flag",
+          args: [
+            {
+              name: "flag key",
+            },
+            {
+              name: "tag",
+            },
+          ],
+        },
+        {
+          name: "remove-tag",
+          description: "Remove a tag from a flag",
+          args: [
+            {
+              name: "flag key",
+            },
+            {
+              name: "tag",
+            },
+          ],
+        },
+        {
+          name: "status",
+          description: "Show flag's statuses",
+          args: [
+            {
+              name: "flag key",
+            },
+          ],
+        },
+        {
+          name: "on",
+          description: "Turn a boolean flag on",
+          args: [
+            {
+              name: "flag key",
+            },
+          ],
+        },
+        {
+          name: "off",
+          description: "Turn a boolean flag off",
+          args: [
+            {
+              name: "flag key",
+            },
+          ],
+        },
+        {
+          name: ["delete", "remove"],
+          description: "Delete a flag",
+          args: [
+            {
+              name: "flag key",
+              isDangerous: true,
+              // generators: environmentGenerator,
+              debounce: true,
+            },
+          ],
+        },
+      ],
+    },
   ],
   options: [
     configOpt,
