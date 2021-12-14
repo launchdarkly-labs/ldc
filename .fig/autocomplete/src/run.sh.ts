@@ -57,7 +57,7 @@ const completionSpec: Fig.Spec = {
           ],
         },
         {
-          name: "rename",
+          name: ["rename", "rn", "mv"],
           description: "Rename config <config name> <new name>",
           args: [
             {
@@ -70,7 +70,7 @@ const completionSpec: Fig.Spec = {
           ],
         },
         {
-          name: "edit",
+          name: ["edit", "update"],
           description: "Update config: <config name> <api token> <project> <environment> [server url]",
           args: [
             {
@@ -95,7 +95,7 @@ const completionSpec: Fig.Spec = {
           ],
         },
         {
-          name: "rm",
+          name: ["rm", "remove", "delete", "del"],
           description: "Remove config: <config name>",
           args: [
             {
