@@ -1,6 +1,17 @@
+interface BaseObject {
+  name: string,
+  key: string
+}
+
+interface WithColor {
+  color: string
+}
+
+interface Project extends BaseObject {}
+interface Environment extends BaseObject, WithColor {}
+
 // Brand colors
 const LD_BLUE_HEX = '405BFF';
-const LD_CYAN_HEX = '3DD6F5';
 const LD_PURPLE_HEX = 'A34FDE';
 
 const configNameGenerator: Fig.Generator = {
@@ -21,7 +32,7 @@ const configNameGenerator: Fig.Generator = {
 
 const projectGenerator: Fig.Generator = {
   script(context) {
-    let cmd = './run.sh projects list';
+    let cmd = './run.sh projects list --json';
     const config = getOptionFromContext(context, configOpt);
     if (config) {
       cmd += ` --config ${config}`;
@@ -34,29 +45,22 @@ const projectGenerator: Fig.Generator = {
     return cmd;
   },
   postProcess(out) {
-    return out.split("\n").reduce((acc, line) => {
-      const match = line.match(
-        /^\| (?<key>[^\s]+) +\| (?<name>.+\b)\s+\|$/
-      );
-  
-      if (match !== null) {
-        const { key, name } = match.groups;
-        acc.push({
-          name: key,
-          insertValue: key,
-          description: name,
-          icon: `fig://template?color=${LD_BLUE_HEX}&badge=P`
-        });
-      }
+    const projects: Project[] = JSON.parse(out);
 
-      return acc;
-    }, []);
+    return projects.map<Fig.Suggestion>((item) => {
+      return {
+        name: item.key,
+        insertValue: item.key,
+        description: item.name,
+        icon: `fig://template?color=${LD_BLUE_HEX}&badge=P`
+      };
+    });
   },
 };
 
 const environmentGenerator: Fig.Generator = {
   script(context) {
-    let cmd = './run.sh environments list';
+    let cmd = './run.sh environments list --json';
     const config = getOptionFromContext(context, configOpt);
     if (config) {
       cmd += ` --config ${config}`;
@@ -69,23 +73,16 @@ const environmentGenerator: Fig.Generator = {
     return cmd;
   },
   postProcess(out) {
-    return out.split("\n").reduce((acc, line) => {
-      const match = line.match(
-        /^\| (?<key>[^\s]+) +\| (?<name>.+\b)\s+\|$/
-      );
-  
-      if (match !== null) {
-        const { key, name } = match.groups;
-        acc.push({
-          name: key,
-          insertValue: key,
-          description: name,
-          icon: `fig://template?color=${LD_CYAN_HEX}&badge=E`
-        });
-      }
+    const envs: Environment[] = JSON.parse(out);
 
-      return acc;
-    }, []);
+    return envs.map<Fig.Suggestion>((item) => {
+      return {
+        name: item.key,
+        insertValue: item.key,
+        description: item.name,
+        icon: `fig://template?color=${item.color}&badge=E`
+      };
+    });
   },
 };
 
@@ -460,6 +457,10 @@ const completionSpec: Fig.Spec = {
   options: [
     configOpt,
     configFileOpt,
+    {
+      name: "--json",
+      description: "Return data as JSON",
+    }
   ],
 };
 export default completionSpec;
