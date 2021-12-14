@@ -452,6 +452,10 @@ const completionSpec: Fig.Spec = {
         },
       ],
     },
+    {
+      name: "log",
+      description: "Search audit log entries",
+    },
   ],
   options: [
     configOpt,
