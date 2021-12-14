@@ -1,5 +1,6 @@
 // Brand colors
 const LD_BLUE_HEX = '405BFF';
+const LD_CYAN_HEX = '3DD6F5';
 
 const configNameGenerator: Fig.Generator = {
   //TODO this should optionally use a config specified with --config
@@ -44,6 +45,41 @@ const projectGenerator: Fig.Generator = {
           insertValue: key,
           description: name,
           icon: `fig://template?color=${LD_BLUE_HEX}&badge=P`
+        });
+      }
+
+      return acc;
+    }, []);
+  },
+};
+
+const environmentGenerator: Fig.Generator = {
+  script(context) {
+    let cmd = './run.sh environments list';
+    const config = getOptionFromContext(context, configOpt);
+    if (config) {
+      cmd += ` --config ${config}`;
+    }
+    const configFile = getOptionFromContext(context, configFileOpt);
+    if (configFile) {
+      cmd += ` --config-file ${configFile}`;
+    }
+
+    return cmd;
+  },
+  postProcess(out) {
+    return out.split("\n").reduce((acc, line) => {
+      const match = line.match(
+        /^\| (?<key>[^\s]+) +\| (?<name>.+\b)\s+\|$/
+      );
+  
+      if (match !== null) {
+        const { key, name } = match.groups;
+        acc.push({
+          name: key,
+          insertValue: key,
+          description: name,
+          icon: `fig://template?color=${LD_CYAN_HEX}&badge=E`
         });
       }
 
@@ -220,6 +256,48 @@ const completionSpec: Fig.Spec = {
               name: "project key",
               isDangerous: true,
               generators: projectGenerator,
+              debounce: true,
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: ["environments", "environment", "envs", "env", "e"],
+      description: "Create, list, view, and delete environments",
+      subcommands: [
+        {
+          name: ["list", "ls", "l"],
+          description: "List environments",
+        },
+        {
+          name: "show",
+          description: "View environments details",
+          args: [
+            {
+              name: "environments key",
+              generators: environmentGenerator,
+              debounce: true,
+            },
+          ],
+        },
+        {
+          name: ["create", "new", "c"],
+          description: "Create an environment",
+          args: [
+            {
+              name: "project key",
+            },
+          ],
+        },
+        {
+          name: ["delete", "remove", "d", "del", "rm"],
+          description: "Delete an environment",
+          args: [
+            {
+              name: "envitonment key",
+              isDangerous: true,
+              generators: environmentGenerator,
               debounce: true,
             },
           ],
