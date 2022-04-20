@@ -1,87 +1,117 @@
-# LDC - LaunchDarkly CLI/Console
+> This project is not officially supported by LaunchDarkly.
 
-[![CircleCI](https://circleci.com/gh/launchdarkly/ldc.svg?style=svg)](https://circleci.com/gh/launchdarkly/ldc)
+# LDC - LaunchDarkly CLI/Console
 
 [![GolangCI](https://golangci.com/badges/github.com/golangci/golangci-lint.svg)](https://golangci.com)
 
 *This is BETA software until version 1.0 and the interface may change.*
- 
-## Configuration
 
+This command-line interface provides basic interaction with LaunchDarkly. You can list and operate on projects, environments, flags, and metrics.
 
-You may specific `~/.config/ldc.json` that looks like:
+## Configuring
 
-```
+You can specify configuration information in the `./ldc.json` file. This sets the default project and environment information for where your commands will operate.
+
+The format is:
+
+```json
 {
-  "staging": {
-    "token": "<your api token>",
-    "server": "https://app.launchdarkly.com/",
-    "defaultProject": "default",
-    "defaultEnvironment": "production"
-  }
+    "<your configuration name>": {
+        "apitoken": "<your api token>",
+        "defaultenvironment": "<your environment key>",
+        "defaultproject": "<your project key>",
+        "server": "<your server, optional, defaults to https://app.launchdarkly.com>"
+    }
 }
 ```
 
-## Examples
+You can create an API access token from the [**Account settings**](https://app.launchdarkly.com/settings) page in the LaunchDarkly application, on the **Authorization** tab.
 
-A simple example is:
+## Running
+
+To run a single command, use:
 
 ```
-ldc flags create <new flag>
+./run.sh <command>
 ```
 
-This will create a flag in the current project (the default project for your config unless you've changed your project)
+To run a series of commands in an interactive shell, use:
+
+```
+./run.sh shell
+```
+
+## Commands
+
+The supported top-level commands are:
+
+* `clear`: Clear the screen
+* `configs`: Update configuration information
+  * Available actions are `add`, `edit`, `rename`, `rm` (remove), `set` (change which configuration you're using)
+* `environments`: List and operate on environments
+  * Available actions are `list`, `show`, `create`, `delete`
+* `exit`: Exit the program
+* `flags`: List and operate on flags
+  * Available actions are: `list` (default), `show`, `create`, `create-toggle`, `add-tag`, `remove-tag`, `on`, `off`, `rollout`, `fallthrough`, `edit`, `delete`, `status`
+* `goals`: List and operate on metrics
+  * Available actions are `list`, `create`, `show`, `results`, `attach`, `detach`, `edit`, `delete`
+* `help`: Display help
+* `json`: Set JSON mode
+* `log`: Search audit log entries
+* `projects`: List and operate on projects
+  * Available actions are `list`, `show`, `create`, `delete`
+* `pwd`: Show current configuration context
+* `shell`: Run shell
+* `switch`: Switch to a given project and environment
+* `token`: Set API token
+* `version`: Show version
+
+For commands that have associated actions, use the format:
+
+```
+<command> <action> <arguments>
+```
+
+For example, to display information about a particular flag, use:
+
+```
+./run.sh flags show <your flag key>
+```
+
+Similarly, to create a new flag in the current project, use:
+
+```
+./run.sh flags create <new flag key>
+```
+
+The current project is the default project specified in your config, unless you've used the `configs` command to change which configuration you're using.
 
 ## Referencing resources
 
+By default, commands apply to resources in the current project and environment. To apply a command to a resource in a different project or environment, you can specify a path to the resource.
 
-Commands can take resource definitions as relative, meaning they apply to the current project and environment (if applicable).
-
-A full path to a resource looks like:
+A full path to a resource looks like this:
 
 ```
 //<config>/<project>/<resource>
 ```
 
-It is also possible to use absolute paths relative to the currently selected config:
+You can also specify an absolute resource path:
 
 ```
 # Enable a flag using absolute syntax /<project>/<resource>
-ldc flags /my-project/my-env/my-flag toggle on
-
+./run.sh flags /my-project/my-env/my-flag toggle on
 ```
 
 Finally, you can reference the default project or environment with the special `...` key:
 
 ```
 # Enable a flag using the default project syntax "/.../<resource>"
-ldc flags /.../my-env/my-flag toggle on
+./run.sh flags /.../my-env/my-flag toggle on
 
 # Enable a flag using the default project and environment syntax "/.../.../<resource>"
-ldc flags /.../.../my-flag toggle on
+./run.sh flags /.../.../my-flag toggle on
 
 # Enable a flag for a specific config using the default project and environment syntax "/.../.../<resource>"
-ldc flags //my-config/.../.../my-flag toggle on
-```
-
- 
-## Running 
-
-Run `./run.sh`.
-
-## Commands
-
-Supported top-level commands are:
-
-```
-creds
-environments
-clear
-pwd
-switch
-flags
-goals 
-projects
-log
-exit
+./run.sh flags //my-config/.../.../my-flag toggle on
 ```
