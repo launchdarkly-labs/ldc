@@ -1,7 +1,7 @@
 {
   "test": {
-    "apitoken": "api-a129659a-2ef3-4931-a9a4-26fafe2caf64",
-    "defaultenvironment": "production",
+    "apitoken": "api-YOUR-API-TOKEN",
     "defaultproject": "default"
+    "defaultenvironment": "test",
   }
 }
