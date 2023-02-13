@@ -249,7 +249,7 @@ func createProject(c *ishell.Context) {
 	}
 	auth := api.GetAuthCtx(getToken(p.Config()))
 
-	if _, err := client.ProjectsApi.PostProject(auth, ldapi.ProjectBody{Key: p.Key(), Name: name}); err != nil {
+	if _, _, err := client.ProjectsApi.PostProject(auth, ldapi.ProjectBody{Key: p.Key(), Name: name}); err != nil {
 		c.Err(err)
 		return
 	}

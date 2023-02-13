@@ -259,7 +259,7 @@ func createEnvironment(c *ishell.Context) {
 	}
 	key := p.Key()
 	auth := api.GetAuthCtx(getToken(p.Config()))
-	_, err = client.EnvironmentsApi.PostEnvironment(auth, p.Project(), ldapi.EnvironmentPost{Key: key, Name: name, Color: "000000"})
+	_, _, err = client.EnvironmentsApi.PostEnvironment(auth, p.Project(), ldapi.EnvironmentPost{Key: key, Name: name, Color: "000000"})
 	if err != nil {
 		c.Err(err)
 		return

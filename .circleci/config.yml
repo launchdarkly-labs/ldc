@@ -26,8 +26,8 @@ defaults:
       - run: GO111MODULE=off go get -u $COMMON_GO_PACKAGES
       - run: curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
       - run: go mod verify
-      - run: sudo apt-get install python-pip
-      - run: sudo pip install pre-commit
+      - run: sudo apt-get update && sudo apt-get install python-pip
+      - run: sudo pip2 install pre-commit
       - run: pre-commit install
       - run: SKIP=go-unit-tests pre-commit run -a
       - run:
@@ -57,6 +57,7 @@ defaults:
           name: Generate coverage report
           command: |
             if [ -z "$DISABLE_COVERAGE" ]; then
+              mkdir -p $CIRCLE_ARTIFACTS
               go tool cover -html=$CIRCLE_ARTIFACTS/coverage.txt -o $CIRCLE_ARTIFACTS/coverage.html
             fi
           when: always
@@ -69,7 +70,7 @@ jobs:
   go-test:
     docker:
       - &build_image
-        image: circleci/golang:1.11
+        image: cimg/go:1.18.9
         environment:
           <<: *environment
 
@@ -93,6 +94,7 @@ jobs:
     working_directory: *working_dir
     steps:
       - checkout
+      - run: sudo mkdir /go && sudo chown -R $USER:$USER /go
       - run:
           name: Releasing and publishing
           command: |
