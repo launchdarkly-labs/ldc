@@ -1,7 +1,7 @@
 {
   "test": {
     "apitoken": "api-YOUR-API-TOKEN",
-    "defaultproject": "default"
-    "defaultenvironment": "test",
+    "defaultproject": "default",
+    "defaultenvironment": "test"
   }
 }
