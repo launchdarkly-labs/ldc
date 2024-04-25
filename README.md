@@ -1,4 +1,9 @@
-> This project is not officially supported by LaunchDarkly.
+> [!CAUTION]
+> This repository has been superceded by [launchdarkly/ldcli](https://github.com/launchdarkly/ldcli).
+>
+> The project in this repository remains unsupported and is no longer going to accept contributions effective immediately.
+>
+> The prior readme contents remain accessible below for posterity.
 
 # LDC - LaunchDarkly CLI/Console
 
