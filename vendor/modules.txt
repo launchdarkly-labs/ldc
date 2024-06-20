@@ -1,0 +1,196 @@
+# github.com/BurntSushi/toml v0.3.1
+## explicit
+# github.com/abiosoft/ishell v2.0.0+incompatible
+## explicit
+# github.com/abiosoft/readline v0.0.0-20180607040430-155bce2042db
+## explicit
+github.com/abiosoft/readline
+# github.com/antihax/optional v1.0.0
+## explicit; go 1.13
+github.com/antihax/optional
+# github.com/chzyer/logex v1.1.10
+## explicit
+# github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1
+## explicit
+# github.com/davecgh/go-spew v1.1.1
+## explicit
+github.com/davecgh/go-spew/spew
+# github.com/fatih/color v1.7.0
+## explicit
+github.com/fatih/color
+# github.com/flynn-archive/go-shlex v0.0.0-20150515145356-3f9db97f8568
+## explicit
+github.com/flynn-archive/go-shlex
+# github.com/fsnotify/fsnotify v1.4.7
+## explicit
+github.com/fsnotify/fsnotify
+# github.com/golang/protobuf v1.2.0
+## explicit
+github.com/golang/protobuf/proto
+# github.com/hashicorp/hcl v1.0.0
+## explicit
+github.com/hashicorp/hcl
+github.com/hashicorp/hcl/hcl/ast
+github.com/hashicorp/hcl/hcl/parser
+github.com/hashicorp/hcl/hcl/printer
+github.com/hashicorp/hcl/hcl/scanner
+github.com/hashicorp/hcl/hcl/strconv
+github.com/hashicorp/hcl/hcl/token
+github.com/hashicorp/hcl/json/parser
+github.com/hashicorp/hcl/json/scanner
+github.com/hashicorp/hcl/json/token
+# github.com/hpcloud/tail v1.0.0
+## explicit
+github.com/hpcloud/tail
+github.com/hpcloud/tail/ratelimiter
+github.com/hpcloud/tail/util
+github.com/hpcloud/tail/watch
+github.com/hpcloud/tail/winfile
+# github.com/inconshreveable/mousetrap v1.0.0
+## explicit
+github.com/inconshreveable/mousetrap
+# github.com/launchdarkly/api-client-go v5.3.0+incompatible
+## explicit
+github.com/launchdarkly/api-client-go
+# github.com/magiconair/properties v1.8.0
+## explicit
+github.com/magiconair/properties
+# github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
+## explicit
+github.com/mattbaird/jsonpatch
+# github.com/mattn/go-colorable v0.0.9
+## explicit
+github.com/mattn/go-colorable
+# github.com/mattn/go-isatty v0.0.4
+## explicit
+github.com/mattn/go-isatty
+# github.com/mattn/go-runewidth v0.0.4
+## explicit
+github.com/mattn/go-runewidth
+# github.com/mitchellh/go-homedir v1.0.0
+## explicit
+github.com/mitchellh/go-homedir
+# github.com/mitchellh/mapstructure v1.1.2
+## explicit
+github.com/mitchellh/mapstructure
+# github.com/olekukonko/tablewriter v0.0.1
+## explicit
+github.com/olekukonko/tablewriter
+# github.com/onsi/ginkgo v1.7.0
+## explicit
+github.com/onsi/ginkgo
+github.com/onsi/ginkgo/config
+github.com/onsi/ginkgo/internal/codelocation
+github.com/onsi/ginkgo/internal/containernode
+github.com/onsi/ginkgo/internal/failer
+github.com/onsi/ginkgo/internal/leafnodes
+github.com/onsi/ginkgo/internal/remote
+github.com/onsi/ginkgo/internal/spec
+github.com/onsi/ginkgo/internal/spec_iterator
+github.com/onsi/ginkgo/internal/specrunner
+github.com/onsi/ginkgo/internal/suite
+github.com/onsi/ginkgo/internal/testingtproxy
+github.com/onsi/ginkgo/internal/writer
+github.com/onsi/ginkgo/reporters
+github.com/onsi/ginkgo/reporters/stenographer
+github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable
+github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty
+github.com/onsi/ginkgo/types
+# github.com/onsi/gomega v1.4.3
+## explicit
+github.com/onsi/gomega
+github.com/onsi/gomega/format
+github.com/onsi/gomega/internal/assertion
+github.com/onsi/gomega/internal/asyncassertion
+github.com/onsi/gomega/internal/oraclematcher
+github.com/onsi/gomega/internal/testingtsupport
+github.com/onsi/gomega/matchers
+github.com/onsi/gomega/matchers/support/goraph/bipartitegraph
+github.com/onsi/gomega/matchers/support/goraph/edge
+github.com/onsi/gomega/matchers/support/goraph/node
+github.com/onsi/gomega/matchers/support/goraph/util
+github.com/onsi/gomega/types
+# github.com/pelletier/go-toml v1.2.0
+## explicit
+github.com/pelletier/go-toml
+# github.com/pmezard/go-difflib v1.0.0
+## explicit
+github.com/pmezard/go-difflib/difflib
+# github.com/spf13/afero v1.2.0
+## explicit
+github.com/spf13/afero
+github.com/spf13/afero/mem
+# github.com/spf13/cast v1.3.0
+## explicit
+github.com/spf13/cast
+# github.com/spf13/cobra v0.0.3
+## explicit
+github.com/spf13/cobra
+# github.com/spf13/jwalterweatherman v1.0.0
+## explicit
+github.com/spf13/jwalterweatherman
+# github.com/spf13/pflag v1.0.3
+## explicit
+github.com/spf13/pflag
+# github.com/spf13/viper v1.3.1
+## explicit
+github.com/spf13/viper
+# github.com/stretchr/testify v1.2.2
+## explicit
+github.com/stretchr/testify/assert
+github.com/stretchr/testify/require
+# golang.org/x/net v0.0.0-20190108225652-1e06a53dbb7e
+## explicit
+golang.org/x/net/context
+golang.org/x/net/context/ctxhttp
+golang.org/x/net/html
+golang.org/x/net/html/atom
+golang.org/x/net/html/charset
+# golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890
+## explicit
+golang.org/x/oauth2
+golang.org/x/oauth2/internal
+# golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
+## explicit
+# golang.org/x/sys v0.5.0
+## explicit; go 1.17
+golang.org/x/sys/unix
+# golang.org/x/text v0.3.0
+## explicit
+golang.org/x/text/encoding
+golang.org/x/text/encoding/charmap
+golang.org/x/text/encoding/htmlindex
+golang.org/x/text/encoding/internal
+golang.org/x/text/encoding/internal/identifier
+golang.org/x/text/encoding/japanese
+golang.org/x/text/encoding/korean
+golang.org/x/text/encoding/simplifiedchinese
+golang.org/x/text/encoding/traditionalchinese
+golang.org/x/text/encoding/unicode
+golang.org/x/text/internal/tag
+golang.org/x/text/internal/utf8internal
+golang.org/x/text/language
+golang.org/x/text/runes
+golang.org/x/text/transform
+golang.org/x/text/unicode/norm
+# google.golang.org/appengine v1.4.0
+## explicit
+google.golang.org/appengine/internal
+google.golang.org/appengine/internal/base
+google.golang.org/appengine/internal/datastore
+google.golang.org/appengine/internal/log
+google.golang.org/appengine/internal/remote_api
+google.golang.org/appengine/internal/urlfetch
+google.golang.org/appengine/urlfetch
+# gopkg.in/abiosoft/ishell.v2 v2.0.0
+## explicit
+gopkg.in/abiosoft/ishell.v2
+# gopkg.in/fsnotify.v1 v1.4.7
+## explicit
+gopkg.in/fsnotify.v1
+# gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
+## explicit
+gopkg.in/tomb.v1
+# gopkg.in/yaml.v2 v2.2.2
+## explicit
+gopkg.in/yaml.v2
